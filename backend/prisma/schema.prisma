@@ -6,3 +6,23 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum RunStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Run {
+  runId         String    @id @map("run_id")
+  cid           String
+  total         Int
+  startedAt     DateTime  @map("started_at") @db.Timestamptz(3)
+  status        RunStatus @default(PROCESSING)
+  finishedCount Int       @default(0) @map("finished_count")
+  callbackSent  Boolean   @default(false) @map("callback_sent")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("runs")
+}
