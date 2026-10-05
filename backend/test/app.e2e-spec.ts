@@ -26,6 +26,20 @@ describe('API (e2e)', () => {
       });
   });
 
+  it('GET /health deve informar que a API está saudável', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/health')
+      .expect(200);
+
+    const body = response.body as { status: string; timestamp: string };
+
+    expect(body).toEqual({
+      status: 'ok',
+      timestamp: expect.any(String),
+    });
+    expect(new Date(body.timestamp).toISOString()).toBe(body.timestamp);
+  });
+
   afterEach(async () => {
     await app.close();
   });
