@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 
-describe('AppController', () => {
+describe('Controlador principal', () => {
   let appController: AppController;
 
   beforeEach(async () => {
@@ -14,9 +14,12 @@ describe('AppController', () => {
     appController = app.get<AppController>(AppController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+  describe('raiz', () => {
+    it('deve informar que o serviço está em execução', () => {
+      expect(appController.getHello()).toEqual({
+        service: 'pipeline-enriquecimento-produtos',
+        status: 'running',
+      });
     });
   });
 });
