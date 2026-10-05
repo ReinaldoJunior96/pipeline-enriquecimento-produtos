@@ -26,3 +26,18 @@ O fluxo completo considera:
 ## Status
 
 Arquitetura definida. Implementação em andamento.
+
+
+
+=====================
+### Validação da integração
+
+O fluxo de registro do webhook foi validado contra a API externa real.
+
+A chamada `POST /register` foi iniciada via `curl`, utilizando a URL pública do backend exposta por ngrok.
+
+Durante o registro, a plataforma externa executou o handshake no endpoint `POST /check` e, após a validação, retornou com sucesso um `cid` e um `token`.
+
+Isso confirmou o funcionamento do fluxo:
+
+`/register → /check → cid + token`
