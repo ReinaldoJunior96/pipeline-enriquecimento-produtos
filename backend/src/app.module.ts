@@ -2,10 +2,11 @@ import { Module, ValidationPipe } from '@nestjs/common';
 import { APP_PIPE } from '@nestjs/core';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { PrismaModule } from './infrastructure/database/prisma.module.js';
 import { WebhookModule } from './modules/webhook/webhook.module.js';
 
 @Module({
-  imports: [WebhookModule],
+  imports: [PrismaModule, WebhookModule],
   controllers: [AppController],
   providers: [
     AppService,
