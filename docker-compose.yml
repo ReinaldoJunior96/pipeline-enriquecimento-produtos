@@ -7,6 +7,38 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pipeline_enriquecimento
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       - ./backend:/app
       - /app/node_modules
+    healthcheck:
+      test:
+        ["CMD-SHELL", "wget --quiet --spider http://127.0.0.1:3000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  postgres:
+    image: postgres:18-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: pipeline_enriquecimento
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U postgres -d pipeline_enriquecimento"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_data:
