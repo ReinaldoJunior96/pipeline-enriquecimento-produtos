@@ -17,13 +17,10 @@ describe('API (e2e)', () => {
   });
 
   it('GET / deve informar que o serviço está em execução', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect({
-        service: 'pipeline-enriquecimento-produtos',
-        status: 'running',
-      });
+    return request(app.getHttpServer()).get('/').expect(200).expect({
+      service: 'pipeline-enriquecimento-produtos',
+      status: 'running',
+    });
   });
 
   it('GET /health deve informar que a API está saudável', async () => {
@@ -38,6 +35,32 @@ describe('API (e2e)', () => {
       timestamp: expect.any(String),
     });
     expect(new Date(body.timestamp).toISOString()).toBe(body.timestamp);
+  });
+
+  it('POST /check deve devolver o token recebido', () => {
+    return request(app.getHttpServer())
+      .post('/check')
+      .send({ token: 'abc123' })
+      .expect(200)
+      .expect({ token: 'abc123' });
+  });
+
+  it('POST /check deve rejeitar um corpo sem token', () => {
+    return request(app.getHttpServer()).post('/check').send({}).expect(400);
+  });
+
+  it('POST /check deve rejeitar um token vazio', () => {
+    return request(app.getHttpServer())
+      .post('/check')
+      .send({ token: '' })
+      .expect(400);
+  });
+
+  it('POST /check deve rejeitar um token que não seja texto', () => {
+    return request(app.getHttpServer())
+      .post('/check')
+      .send({ token: 123 })
+      .expect(400);
   });
 
   afterEach(async () => {
