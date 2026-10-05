@@ -10,7 +10,5 @@ export interface LoteCriadoNaPlataforma {
 }
 
 export interface PlataformaExternaClient {
-  criarLote(
-    input: CriarLoteNaPlataformaInput,
-  ): Promise<LoteCriadoNaPlataforma>;
+  criarLote(input: CriarLoteNaPlataformaInput): Promise<LoteCriadoNaPlataforma>;
 }
