@@ -1,14 +1,42 @@
+import { getQueueToken } from '@nestjs/bullmq';
 import { INestApplication } from '@nestjs/common';
+import { Queue } from 'bullmq';
 import { performance } from 'node:perf_hooks';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
-import { criarAplicacaoProcessamentoDeTeste } from '../../support/criar-aplicacao-processamento-de-teste.js';
+import { PrismaService } from '../../../src/infrastructure/database/prisma.service.js';
+import { ProcessItemInput } from '../../../src/modules/processing/domain/repositories/process-item.repository.js';
+import { PROCESSING_QUEUE_NAME } from '../../../src/modules/processing/infrastructure/queues/processing-queue.constants.js';
+import { criarAplicacaoDeTeste } from '../../support/criar-aplicacao-de-teste.js';
 
 describe('Tempo de ACK do processamento (e2e)', () => {
+  const runId = 'run_ack_bullmq';
   let app: INestApplication<App>;
+  let prisma: PrismaService;
+  let fila: Queue<ProcessItemInput>;
 
   beforeAll(async () => {
-    ({ app } = await criarAplicacaoProcessamentoDeTeste());
+    app = await criarAplicacaoDeTeste();
+    prisma = app.get(PrismaService);
+    fila = app.get(getQueueToken(PROCESSING_QUEUE_NAME));
+  });
+
+  beforeEach(async () => {
+    await fila.obliterate({ force: true });
+    await prisma.run.create({
+      data: {
+        runId,
+        cid: 'cid_ack_bullmq',
+        total: 1,
+        startedAt: new Date('2026-10-06T12:00:00.000Z'),
+      },
+    });
+  });
+
+  afterEach(async () => {
+    await prisma.runItem.deleteMany({ where: { runId } });
+    await prisma.run.deleteMany({ where: { runId } });
+    await fila.obliterate({ force: true });
   });
 
   afterAll(async () => {
@@ -21,7 +49,7 @@ describe('Tempo de ACK do processamento (e2e)', () => {
     await request(app.getHttpServer())
       .post('/process')
       .send({
-        run_id: 'run_abc123',
+        run_id: runId,
         seq: 0,
         sku: 'sku-001',
       })
