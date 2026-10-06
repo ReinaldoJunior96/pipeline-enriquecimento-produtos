@@ -3,11 +3,17 @@ import { APP_PIPE } from '@nestjs/core';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { PrismaModule } from './infrastructure/database/prisma.module.js';
+import { BullmqInfrastructureModule } from './infrastructure/queue/bullmq-infrastructure.module.js';
 import { ProcessingModule } from './modules/processing/processing.module.js';
 import { WebhookModule } from './modules/webhook/webhook.module.js';
 
 @Module({
-  imports: [PrismaModule, ProcessingModule, WebhookModule],
+  imports: [
+    PrismaModule,
+    BullmqInfrastructureModule,
+    ProcessingModule,
+    WebhookModule,
+  ],
   controllers: [AppController],
   providers: [
     AppService,
