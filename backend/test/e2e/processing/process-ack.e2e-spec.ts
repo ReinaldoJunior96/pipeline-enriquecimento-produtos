@@ -59,5 +59,13 @@ describe('Tempo de ACK do processamento (e2e)', () => {
     const duracaoEmMilissegundos = performance.now() - inicio;
 
     expect(duracaoEmMilissegundos).toBeLessThan(600);
+
+    await vi.waitFor(
+      async () => {
+        const job = await fila.getJob(`${runId}-0`);
+        await expect(job?.getState()).resolves.toBe('completed');
+      },
+      { timeout: 2_000, interval: 20 },
+    );
   });
 });
