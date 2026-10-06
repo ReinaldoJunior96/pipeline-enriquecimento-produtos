@@ -88,4 +88,24 @@ describe('HttpEnrichmentClient', () => {
       new HttpEnrichmentClient(config).enrich({ sku: 'sku-404' }),
     ).rejects.toBeInstanceOf(EnrichmentNotFoundError);
   });
+
+  it.each([
+    { sku: 123, price: 99.9, stock: 12 },
+    { sku: 'sku-invalid', price: '99.90', stock: 12 },
+    { sku: 'sku-invalid', price: 99.9, stock: 1.5 },
+  ])(
+    'deve rejeitar uma resposta 200 fora do contrato: %j',
+    async (payload) => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify(payload), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+
+      await expect(
+        new HttpEnrichmentClient(config).enrich({ sku: 'sku-invalid' }),
+      ).rejects.toBeInstanceOf(EnrichmentTransientError);
+    },
+  );
 });
