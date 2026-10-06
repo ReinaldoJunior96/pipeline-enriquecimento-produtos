@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../infrastructure/database/prisma.module.js';
 import {
@@ -10,11 +11,15 @@ import {
   ProcessItemRepository,
 } from './domain/repositories/process-item.repository.js';
 import { InMemoryProcessingQueue } from './infrastructure/in-memory/in-memory-processing.queue.js';
+import { PROCESSING_QUEUE_NAME } from './infrastructure/queues/processing-queue.constants.js';
 import { PrismaProcessItemRepository } from './infrastructure/repositories/prisma-process-item.repository.js';
 import { ProcessingController } from './processing.controller.js';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [
+    PrismaModule,
+    BullModule.registerQueue({ name: PROCESSING_QUEUE_NAME }),
+  ],
   controllers: [ProcessingController],
   providers: [
     {
