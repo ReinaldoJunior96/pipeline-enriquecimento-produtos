@@ -17,17 +17,17 @@ import { FakeEnrichmentClient } from '../../fakes/fake-enrichment.client.js';
 
 describe('Erro transitório no worker de enriquecimento', () => {
   const runId = 'run_worker_transient';
+  const cliente = new FakeEnrichmentClient();
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let fila: Queue<ProcessItemInput>;
 
   beforeAll(async () => {
-    const cliente = new FakeEnrichmentClient();
     cliente.falharCom(
       'sku-error-500',
       new EnrichmentTransientError('Serviço de enriquecimento indisponível'),
     );
-    cliente.falharCom('sku-rate-limit', new EnrichmentRateLimitError(2));
+    cliente.falharCom('sku-rate-limit', new EnrichmentRateLimitError(0.1));
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(ENRICHMENT_CLIENT)
       .useValue(cliente)
@@ -61,7 +61,7 @@ describe('Erro transitório no worker de enriquecimento', () => {
     await app.close();
   });
 
-  it('deve propagar erro 500 sem marcar o item como erro definitivo', async () => {
+  it('deve esgotar as tentativas do erro 500', async () => {
     await request(app.getHttpServer())
       .post('/process')
       .send({ run_id: runId, seq: 0, sku: 'sku-error-500' })
@@ -71,6 +71,7 @@ describe('Erro transitório no worker de enriquecimento', () => {
       async () => {
         const job = await fila.getJob(`${runId}-0`);
         await expect(job?.getState()).resolves.toBe('failed');
+        expect(job?.attemptsMade).toBe(3);
       },
       { timeout: 5_000, interval: 50 },
     );
@@ -81,14 +82,17 @@ describe('Erro transitório no worker de enriquecimento', () => {
       }),
     ).resolves.toEqual(
       expect.objectContaining({
-        status: 'PROCESSING',
-        attempts: 1,
+        status: 'ERROR',
+        attempts: 3,
         price: null,
         stock: null,
-        errorCode: null,
-        errorMessage: null,
+        errorCode: 'RETRY_EXHAUSTED',
+        errorMessage: 'Tentativas de enriquecimento esgotadas',
       }),
     );
+    expect(
+      cliente.chamadas.filter(({ sku }) => sku === 'sku-error-500'),
+    ).toHaveLength(3);
   });
 
   it('deve propagar rate limit preservando a informação de Retry-After', async () => {
@@ -107,18 +111,21 @@ describe('Erro transitório no worker de enriquecimento', () => {
       { timeout: 5_000, interval: 50 },
     );
 
-    expect(falha).toContain('2 segundos');
+    expect(falha).toContain('0.1 segundos');
     await expect(
       prisma.runItem.findUniqueOrThrow({
         where: { runId_seq: { runId, seq: 1 } },
       }),
     ).resolves.toEqual(
       expect.objectContaining({
-        status: 'PROCESSING',
-        attempts: 1,
-        errorCode: null,
-        errorMessage: null,
+        status: 'ERROR',
+        attempts: 3,
+        errorCode: 'RETRY_EXHAUSTED',
+        errorMessage: 'Tentativas de enriquecimento esgotadas',
       }),
     );
+    expect(
+      cliente.chamadas.filter(({ sku }) => sku === 'sku-rate-limit'),
+    ).toHaveLength(3);
   });
 });
