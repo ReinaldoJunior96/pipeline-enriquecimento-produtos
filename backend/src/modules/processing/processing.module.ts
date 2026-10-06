@@ -2,10 +2,15 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../infrastructure/database/prisma.module.js';
 import {
+  ENRICHMENT_CLIENT,
+  EnrichmentClient,
+} from './application/contracts/enrichment.client.js';
+import {
   PROCESSING_QUEUE,
   ProcessingQueue,
 } from './application/queues/processing.queue.js';
 import { ReceberItemProcessamentoUseCase } from './application/use-cases/receber-item-processamento.use-case.js';
+import { ProcessarItemUseCase } from './application/use-cases/processar-item.use-case.js';
 import {
   PROCESS_ITEM_REPOSITORY,
   ProcessItemRepository,
@@ -13,6 +18,8 @@ import {
 import { BullMqProcessingQueue } from './infrastructure/queues/bullmq-processing.queue.js';
 import { PROCESSING_QUEUE_NAME } from './infrastructure/queues/processing-queue.constants.js';
 import { PrismaProcessItemRepository } from './infrastructure/repositories/prisma-process-item.repository.js';
+import { DevelopmentEnrichmentClient } from './infrastructure/clients/development-enrichment.client.js';
+import { ProcessingWorker } from './infrastructure/workers/processing.worker.js';
 import { ProcessingController } from './processing.controller.js';
 
 @Module({
@@ -30,12 +37,26 @@ import { ProcessingController } from './processing.controller.js';
       provide: PROCESSING_QUEUE,
       useClass: BullMqProcessingQueue,
     },
+    DevelopmentEnrichmentClient,
+    {
+      provide: ENRICHMENT_CLIENT,
+      useExisting: DevelopmentEnrichmentClient,
+    },
     {
       provide: ReceberItemProcessamentoUseCase,
       inject: [PROCESS_ITEM_REPOSITORY, PROCESSING_QUEUE],
       useFactory: (repositorio: ProcessItemRepository, fila: ProcessingQueue) =>
         new ReceberItemProcessamentoUseCase(repositorio, fila),
     },
+    {
+      provide: ProcessarItemUseCase,
+      inject: [PROCESS_ITEM_REPOSITORY, ENRICHMENT_CLIENT],
+      useFactory: (
+        repositorio: ProcessItemRepository,
+        cliente: EnrichmentClient,
+      ) => new ProcessarItemUseCase(repositorio, cliente),
+    },
+    ProcessingWorker,
   ],
 })
 export class ProcessingModule {}
