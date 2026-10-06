@@ -1,4 +1,5 @@
 import { EnrichmentClient } from '../contracts/enrichment.client.js';
+import { EnrichmentUnauthorizedError } from '../../domain/errors/enrichment.errors.js';
 import {
   ProcessItemInput,
   ProcessItemRepository,
@@ -28,16 +29,30 @@ export class ProcessarItemUseCase {
       throw new Error(`Item com status ${item.status} não pode ser processado`);
     }
 
-    const resultado = await this.cliente.enrich({ sku: input.sku });
-    const concluiu = await this.repositorio.markSuccess({
-      runId: input.runId,
-      seq: input.seq,
-      price: resultado.price,
-      stock: resultado.stock,
-    });
+    try {
+      const resultado = await this.cliente.enrich({ sku: input.sku });
+      const concluiu = await this.repositorio.markSuccess({
+        runId: input.runId,
+        seq: input.seq,
+        price: resultado.price,
+        stock: resultado.stock,
+      });
 
-    if (!concluiu) {
-      throw new Error('Não foi possível concluir o processamento do item');
+      if (!concluiu) {
+        throw new Error('Não foi possível concluir o processamento do item');
+      }
+    } catch (error) {
+      if (error instanceof EnrichmentUnauthorizedError) {
+        await this.repositorio.markError({
+          runId: input.runId,
+          seq: input.seq,
+          errorCode: error.code,
+          errorMessage: error.message,
+        });
+        return;
+      }
+
+      throw error;
     }
   }
 }
