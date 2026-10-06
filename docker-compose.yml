@@ -11,6 +11,10 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       BULL_BOARD_ENABLED: "true"
+      ENRICHMENT_MODE: ${ENRICHMENT_MODE:-fake}
+      PLATAFORMA_BASE_URL: ${PLATAFORMA_BASE_URL:-}
+      PLATAFORMA_CID: ${PLATAFORMA_CID:-}
+      PLATAFORMA_TOKEN: ${PLATAFORMA_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

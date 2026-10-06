@@ -19,6 +19,7 @@ import { BullMqProcessingQueue } from './infrastructure/queues/bullmq-processing
 import { PROCESSING_QUEUE_NAME } from './infrastructure/queues/processing-queue.constants.js';
 import { PrismaProcessItemRepository } from './infrastructure/repositories/prisma-process-item.repository.js';
 import { DevelopmentEnrichmentClient } from './infrastructure/clients/development-enrichment.client.js';
+import { criarEnrichmentClient } from './infrastructure/clients/enrichment-client.provider.js';
 import { ProcessingWorker } from './infrastructure/workers/processing.worker.js';
 import { ProcessingController } from './processing.controller.js';
 
@@ -40,7 +41,9 @@ import { ProcessingController } from './processing.controller.js';
     DevelopmentEnrichmentClient,
     {
       provide: ENRICHMENT_CLIENT,
-      useExisting: DevelopmentEnrichmentClient,
+      inject: [DevelopmentEnrichmentClient],
+      useFactory: (desenvolvimento: DevelopmentEnrichmentClient) =>
+        criarEnrichmentClient(desenvolvimento),
     },
     {
       provide: ReceberItemProcessamentoUseCase,
