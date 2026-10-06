@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PrismaModule } from '../../infrastructure/database/prisma.module.js';
 import {
   PROCESSING_QUEUE,
   ProcessingQueue,
@@ -8,16 +9,17 @@ import {
   PROCESS_ITEM_REPOSITORY,
   ProcessItemRepository,
 } from './domain/repositories/process-item.repository.js';
-import { InMemoryProcessItemRepository } from './infrastructure/in-memory/in-memory-process-item.repository.js';
 import { InMemoryProcessingQueue } from './infrastructure/in-memory/in-memory-processing.queue.js';
+import { PrismaProcessItemRepository } from './infrastructure/repositories/prisma-process-item.repository.js';
 import { ProcessingController } from './processing.controller.js';
 
 @Module({
+  imports: [PrismaModule],
   controllers: [ProcessingController],
   providers: [
     {
       provide: PROCESS_ITEM_REPOSITORY,
-      useClass: InMemoryProcessItemRepository,
+      useClass: PrismaProcessItemRepository,
     },
     {
       provide: PROCESSING_QUEUE,

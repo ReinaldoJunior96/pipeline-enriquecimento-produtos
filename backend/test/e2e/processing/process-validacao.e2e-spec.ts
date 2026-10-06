@@ -1,13 +1,13 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
-import { criarAplicacaoDeTeste } from '../../support/criar-aplicacao-de-teste.js';
+import { criarAplicacaoProcessamentoDeTeste } from '../../support/criar-aplicacao-processamento-de-teste.js';
 
 describe('Validação do processamento (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
-    app = await criarAplicacaoDeTeste();
+    ({ app } = await criarAplicacaoProcessamentoDeTeste());
   });
 
   afterAll(async () => {
