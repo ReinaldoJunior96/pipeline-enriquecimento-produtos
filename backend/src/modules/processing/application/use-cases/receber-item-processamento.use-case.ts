@@ -23,18 +23,13 @@ export class ReceberItemProcessamentoUseCase {
   async execute(
     input: ReceberItemProcessamentoInput,
   ): Promise<ItemProcessamentoAceito> {
-    const itemJaRegistrado = await this.repositorio.exists(
-      input.runId,
-      input.seq,
-    );
+    const item: ProcessItemInput = input;
+    const { created } = await this.repositorio.registerIfNew(item);
 
-    if (itemJaRegistrado) {
+    if (!created) {
       return { status: 'accepted' };
     }
 
-    const item: ProcessItemInput = input;
-
-    await this.repositorio.register(item);
     await this.fila.enqueue(item);
 
     return { status: 'accepted' };

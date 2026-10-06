@@ -6,11 +6,17 @@ import {
 export class InMemoryProcessItemRepository implements ProcessItemRepository {
   private readonly itens: ProcessItemInput[] = [];
 
-  async exists(runId: string, seq: number): Promise<boolean> {
-    return this.itens.some((item) => item.runId === runId && item.seq === seq);
-  }
+  async registerIfNew(item: ProcessItemInput): Promise<{ created: boolean }> {
+    const duplicado = this.itens.some(
+      (existente) =>
+        existente.runId === item.runId && existente.seq === item.seq,
+    );
 
-  async register(item: ProcessItemInput): Promise<void> {
+    if (duplicado) {
+      return { created: false };
+    }
+
     this.itens.push(item);
+    return { created: true };
   }
 }

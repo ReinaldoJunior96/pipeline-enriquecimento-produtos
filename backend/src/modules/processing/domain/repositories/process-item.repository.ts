@@ -5,8 +5,7 @@ export interface ProcessItemInput {
 }
 
 export interface ProcessItemRepository {
-  exists(runId: string, seq: number): Promise<boolean>;
-  register(item: ProcessItemInput): Promise<void>;
+  registerIfNew(item: ProcessItemInput): Promise<{ created: boolean }>;
 }
 
 export const PROCESS_ITEM_REPOSITORY = Symbol('PROCESS_ITEM_REPOSITORY');

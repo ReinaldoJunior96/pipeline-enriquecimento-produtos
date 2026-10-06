@@ -8,14 +8,14 @@ describe('Contrato do repositório de itens de processamento', () => {
     sku: 'sku-001',
   };
 
-  it('deve identificar um item já registrado pelo runId e seq', async () => {
+  it('deve registrar somente uma vez o mesmo runId e seq', async () => {
     const repositorio: ProcessItemRepository = new FakeProcessItemRepository();
 
-    expect(await repositorio.exists(item.runId, item.seq)).toBe(false);
-
-    await repositorio.register(item);
-
-    expect(await repositorio.exists(item.runId, item.seq)).toBe(true);
-    expect(await repositorio.exists(item.runId, 1)).toBe(false);
+    await expect(repositorio.registerIfNew(item)).resolves.toEqual({
+      created: true,
+    });
+    await expect(repositorio.registerIfNew(item)).resolves.toEqual({
+      created: false,
+    });
   });
 });
