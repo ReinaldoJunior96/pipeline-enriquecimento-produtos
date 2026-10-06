@@ -17,12 +17,12 @@ import { FakeEnrichmentClient } from '../../fakes/fake-enrichment.client.js';
 
 describe('Erro definitivo no worker de enriquecimento', () => {
   const runId = 'run_worker_definitive';
+  const cliente = new FakeEnrichmentClient();
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let fila: Queue<ProcessItemInput>;
 
   beforeAll(async () => {
-    const cliente = new FakeEnrichmentClient();
     cliente.falharCom('sku-unauthorized', new EnrichmentUnauthorizedError());
     cliente.falharCom('sku-not-found', new EnrichmentNotFoundError());
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
@@ -85,6 +85,10 @@ describe('Erro definitivo no worker de enriquecimento', () => {
 
     const job = await fila.getJob(`${runId}-0`);
     await expect(job?.getState()).resolves.toBe('completed');
+    expect(job?.attemptsMade).toBe(1);
+    expect(
+      cliente.chamadas.filter(({ sku }) => sku === 'sku-unauthorized'),
+    ).toHaveLength(1);
   });
 
   it('deve marcar ERROR para SKU inexistente', async () => {
@@ -114,5 +118,9 @@ describe('Erro definitivo no worker de enriquecimento', () => {
 
     const job = await fila.getJob(`${runId}-1`);
     await expect(job?.getState()).resolves.toBe('completed');
+    expect(job?.attemptsMade).toBe(1);
+    expect(
+      cliente.chamadas.filter(({ sku }) => sku === 'sku-not-found'),
+    ).toHaveLength(1);
   });
 });
