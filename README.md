@@ -55,3 +55,7 @@ PostgreSQL
 
 npm run test:integracao:autenticacao
 plataforma externa
+
+### Limite de concorrência
+
+O limite atual de três chamadas simultâneas é aplicado por processo do worker. Em um cenário horizontal, cada réplica poderia executar até três chamadas ao mesmo tempo; portanto, seria necessário um limitador distribuído/global para garantir o limite externo entre todas as réplicas. Esta implementação atende ao cenário local com uma única instância.

@@ -6,10 +6,12 @@ import { ProcessItemInput } from '../../domain/repositories/process-item.reposit
 import {
   PROCESSING_QUEUE_NAME,
   PROCESS_ITEM_JOB_NAME,
+  PROCESSING_WORKER_CONCURRENCY,
 } from '../queues/processing-queue.constants.js';
 import { processingBackoffStrategy } from './processing-backoff.strategy.js';
 
 @Processor(PROCESSING_QUEUE_NAME, {
+  concurrency: PROCESSING_WORKER_CONCURRENCY,
   settings: { backoffStrategy: processingBackoffStrategy },
 })
 export class ProcessingWorker extends WorkerHost {

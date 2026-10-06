@@ -49,14 +49,12 @@ describe('Concorrência do worker de processamento', () => {
   });
 
   it('deve processar dez jobs com no máximo três enrich simultâneos', async () => {
-    await Promise.all(
-      Array.from({ length: total }, (_, seq) =>
-        request(app.getHttpServer())
-          .post('/process')
-          .send({ run_id: runId, seq, sku: `sku-concurrency-${seq}` })
-          .expect(202),
-      ),
-    );
+    for (let seq = 0; seq < total; seq += 1) {
+      await request(app.getHttpServer())
+        .post('/process')
+        .send({ run_id: runId, seq, sku: `sku-concurrency-${seq}` })
+        .expect(202);
+    }
 
     await vi.waitFor(
       async () => {
