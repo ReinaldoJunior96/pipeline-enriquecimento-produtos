@@ -74,10 +74,17 @@ describe('Cadastro manual de lote (e2e)', () => {
   });
 
   it.each([
-    ['run_id ausente', { cid: 'cid', total: 1, started_at: payloadValido.started_at }],
+    [
+      'run_id ausente',
+      { cid: 'cid', total: 1, started_at: payloadValido.started_at },
+    ],
     [
       'cid ausente',
-      { run_id: `${prefixoRunId}_missing_cid`, total: 1, started_at: payloadValido.started_at },
+      {
+        run_id: `${prefixoRunId}_missing_cid`,
+        total: 1,
+        started_at: payloadValido.started_at,
+      },
     ],
     [
       'total inválido',
