@@ -3,6 +3,7 @@ import { APP_PIPE } from '@nestjs/core';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { PrismaModule } from './infrastructure/database/prisma.module.js';
+import { BullBoardObservabilityModule } from './infrastructure/observability/bull-board.module.js';
 import { BullmqInfrastructureModule } from './infrastructure/queue/bullmq-infrastructure.module.js';
 import { ProcessingModule } from './modules/processing/processing.module.js';
 import { WebhookModule } from './modules/webhook/webhook.module.js';
@@ -12,6 +13,7 @@ import { WebhookModule } from './modules/webhook/webhook.module.js';
     PrismaModule,
     BullmqInfrastructureModule,
     ProcessingModule,
+    BullBoardObservabilityModule.register(),
     WebhookModule,
   ],
   controllers: [AppController],
