@@ -7,6 +7,7 @@ export default defineConfig({
     include: [
       'test/integration/database/**/*.integration-test.ts',
       'test/integration/processing/**/*.integration-test.ts',
+      'test/integration/queue/**/*.integration-test.ts',
     ],
     fileParallelism: false,
     testTimeout: 30_000,
