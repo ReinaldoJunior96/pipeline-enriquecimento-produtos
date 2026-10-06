@@ -7,7 +7,7 @@ import { App } from 'supertest/types.js';
 import { PrismaService } from '../../../src/infrastructure/database/prisma.service.js';
 import { ProcessItemInput } from '../../../src/modules/processing/domain/repositories/process-item.repository.js';
 import { PROCESSING_QUEUE_NAME } from '../../../src/modules/processing/infrastructure/queues/processing-queue.constants.js';
-import { criarAplicacaoDeTeste } from '../../support/criar-aplicacao-de-teste.js';
+import { criarAplicacaoCompletaDeTeste } from '../../support/criar-aplicacao-de-teste.js';
 
 describe('Tempo de ACK do processamento (e2e)', () => {
   const runId = 'run_ack_bullmq';
@@ -16,7 +16,7 @@ describe('Tempo de ACK do processamento (e2e)', () => {
   let fila: Queue<ProcessItemInput>;
 
   beforeAll(async () => {
-    app = await criarAplicacaoDeTeste();
+    app = await criarAplicacaoCompletaDeTeste();
     prisma = app.get(PrismaService);
     fila = app.get(getQueueToken(PROCESSING_QUEUE_NAME));
   });
