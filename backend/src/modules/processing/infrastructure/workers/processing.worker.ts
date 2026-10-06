@@ -6,8 +6,11 @@ import {
   PROCESSING_QUEUE_NAME,
   PROCESS_ITEM_JOB_NAME,
 } from '../queues/processing-queue.constants.js';
+import { processingBackoffStrategy } from './processing-backoff.strategy.js';
 
-@Processor(PROCESSING_QUEUE_NAME)
+@Processor(PROCESSING_QUEUE_NAME, {
+  settings: { backoffStrategy: processingBackoffStrategy },
+})
 export class ProcessingWorker extends WorkerHost {
   constructor(private readonly processarItem: ProcessarItemUseCase) {
     super();

@@ -18,6 +18,7 @@ describe('BullMqProcessingQueue', () => {
     expect(adicionar).toHaveBeenCalledWith('process-item', item, {
       jobId: 'run_queue_test-1',
       attempts: 3,
+      backoff: { type: 'processing' },
     });
   });
 });
