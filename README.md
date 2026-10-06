@@ -41,3 +41,17 @@ Durante o registro, a plataforma externa executou o handshake no endpoint `POST 
 Isso confirmou o funcionamento do fluxo:
 
 `/register → /check → cid + token`
+
+
+
+npm test
+unitários e contratos
+
+npm run test:e2e
+endpoints HTTP
+
+npm run test:integracao:banco
+PostgreSQL
+
+npm run test:integracao:autenticacao
+plataforma externa
