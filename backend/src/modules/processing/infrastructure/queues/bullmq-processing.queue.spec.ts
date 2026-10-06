@@ -15,6 +15,8 @@ describe('BullMqProcessingQueue', () => {
     await processingQueue.enqueue(item);
 
     expect(adicionar).toHaveBeenCalledOnce();
-    expect(adicionar).toHaveBeenCalledWith('process-item', item);
+    expect(adicionar).toHaveBeenCalledWith('process-item', item, {
+      jobId: 'run_queue_test-1',
+    });
   });
 });

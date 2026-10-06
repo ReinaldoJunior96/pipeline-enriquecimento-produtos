@@ -16,6 +16,8 @@ export class BullMqProcessingQueue implements ProcessingQueue {
   ) {}
 
   async enqueue(item: ProcessItemInput): Promise<void> {
-    await this.fila.add(PROCESS_ITEM_JOB_NAME, item);
+    await this.fila.add(PROCESS_ITEM_JOB_NAME, item, {
+      jobId: `${item.runId}-${item.seq}`,
+    });
   }
 }
