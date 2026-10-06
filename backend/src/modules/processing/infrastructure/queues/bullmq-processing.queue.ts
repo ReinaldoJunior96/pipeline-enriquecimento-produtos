@@ -1,0 +1,21 @@
+import { InjectQueue } from '@nestjs/bullmq';
+import { Injectable } from '@nestjs/common';
+import { Queue } from 'bullmq';
+import { ProcessingQueue } from '../../application/queues/processing.queue.js';
+import { ProcessItemInput } from '../../domain/repositories/process-item.repository.js';
+import {
+  PROCESSING_QUEUE_NAME,
+  PROCESS_ITEM_JOB_NAME,
+} from './processing-queue.constants.js';
+
+@Injectable()
+export class BullMqProcessingQueue implements ProcessingQueue {
+  constructor(
+    @InjectQueue(PROCESSING_QUEUE_NAME)
+    private readonly fila: Queue<ProcessItemInput>,
+  ) {}
+
+  async enqueue(item: ProcessItemInput): Promise<void> {
+    await this.fila.add(PROCESS_ITEM_JOB_NAME, item);
+  }
+}
