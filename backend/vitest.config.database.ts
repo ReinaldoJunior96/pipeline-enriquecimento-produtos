@@ -4,7 +4,10 @@ export default defineConfig({
   test: {
     globals: true,
     root: './',
-    include: ['test/integration/database/**/*.integration-test.ts'],
+    include: [
+      'test/integration/database/**/*.integration-test.ts',
+      'test/integration/processing/**/*.integration-test.ts',
+    ],
     fileParallelism: false,
     testTimeout: 30_000,
   },
