@@ -12,10 +12,7 @@ describe('Receber item para processamento', () => {
   it('deve registrar e enfileirar um item novo uma única vez', async () => {
     const repositorio = new FakeProcessItemRepository();
     const fila = new FakeProcessingQueue();
-    const receberItem = new ReceberItemProcessamentoUseCase(
-      repositorio,
-      fila,
-    );
+    const receberItem = new ReceberItemProcessamentoUseCase(repositorio, fila);
 
     const resultado = await receberItem.execute(item);
 
@@ -27,10 +24,7 @@ describe('Receber item para processamento', () => {
   it('não deve registrar novamente um item duplicado', async () => {
     const repositorio = new FakeProcessItemRepository();
     const fila = new FakeProcessingQueue();
-    const receberItem = new ReceberItemProcessamentoUseCase(
-      repositorio,
-      fila,
-    );
+    const receberItem = new ReceberItemProcessamentoUseCase(repositorio, fila);
 
     await receberItem.execute(item);
     const resultado = await receberItem.execute(item);
@@ -42,10 +36,7 @@ describe('Receber item para processamento', () => {
   it('não deve enfileirar novamente um item duplicado', async () => {
     const repositorio = new FakeProcessItemRepository();
     const fila = new FakeProcessingQueue();
-    const receberItem = new ReceberItemProcessamentoUseCase(
-      repositorio,
-      fila,
-    );
+    const receberItem = new ReceberItemProcessamentoUseCase(repositorio, fila);
 
     await receberItem.execute(item);
     const resultado = await receberItem.execute(item);
