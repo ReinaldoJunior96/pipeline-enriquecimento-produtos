@@ -38,7 +38,36 @@ export class HttpEnrichmentClient implements EnrichmentClient {
       this.lancarErroDaResposta(response);
     }
 
-    return (await response.json()) as EnrichmentResult;
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new EnrichmentTransientError(
+        'Resposta inválida recebida no enriquecimento',
+      );
+    }
+
+    if (!this.respostaValida(payload)) {
+      throw new EnrichmentTransientError(
+        'Resposta inválida recebida no enriquecimento',
+      );
+    }
+
+    return payload;
+  }
+
+  private respostaValida(payload: unknown): payload is EnrichmentResult {
+    if (typeof payload !== 'object' || payload === null) return false;
+
+    const resposta = payload as Record<string, unknown>;
+    return (
+      typeof resposta.sku === 'string' &&
+      resposta.sku.trim().length > 0 &&
+      typeof resposta.price === 'number' &&
+      Number.isFinite(resposta.price) &&
+      typeof resposta.stock === 'number' &&
+      Number.isInteger(resposta.stock)
+    );
   }
 
   private lancarErroDaResposta(response: Response): never {
