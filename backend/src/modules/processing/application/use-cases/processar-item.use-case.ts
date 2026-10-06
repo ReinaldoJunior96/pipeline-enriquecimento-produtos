@@ -61,4 +61,17 @@ export class ProcessarItemUseCase {
       throw error;
     }
   }
+
+  async marcarTentativasEsgotadas(input: ProcessItemInput): Promise<void> {
+    const marcou = await this.repositorio.markError({
+      runId: input.runId,
+      seq: input.seq,
+      errorCode: 'RETRY_EXHAUSTED',
+      errorMessage: 'Tentativas de enriquecimento esgotadas',
+    });
+
+    if (!marcou) {
+      throw new Error('Não foi possível marcar as tentativas como esgotadas');
+    }
+  }
 }
