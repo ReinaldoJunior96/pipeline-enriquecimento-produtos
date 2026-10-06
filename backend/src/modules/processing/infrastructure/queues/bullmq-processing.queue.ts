@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { ProcessingQueue } from '../../application/queues/processing.queue.js';
 import { ProcessItemInput } from '../../domain/repositories/process-item.repository.js';
@@ -12,6 +12,8 @@ import {
 
 @Injectable()
 export class BullMqProcessingQueue implements ProcessingQueue {
+  private readonly logger = new Logger(BullMqProcessingQueue.name);
+
   constructor(
     @InjectQueue(PROCESSING_QUEUE_NAME)
     private readonly fila: Queue<ProcessItemInput>,
@@ -22,6 +24,12 @@ export class BullMqProcessingQueue implements ProcessingQueue {
       jobId: `${item.runId}-${item.seq}`,
       attempts: PROCESSING_JOB_ATTEMPTS,
       backoff: { type: PROCESSING_JOB_BACKOFF_TYPE },
+    });
+    this.logger.log({
+      evento: 'process.job_enfileirado',
+      runId: item.runId,
+      seq: item.seq,
+      sku: item.sku,
     });
   }
 }
