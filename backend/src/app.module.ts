@@ -2,6 +2,7 @@ import { Module, ValidationPipe } from '@nestjs/common';
 import { APP_PIPE } from '@nestjs/core';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { AdminRunsModule } from './infrastructure/admin/admin-runs.module.js';
 import { PrismaModule } from './infrastructure/database/prisma.module.js';
 import { BullBoardObservabilityModule } from './infrastructure/observability/bull-board.module.js';
 import { BullmqInfrastructureModule } from './infrastructure/queue/bullmq-infrastructure.module.js';
@@ -11,6 +12,7 @@ import { WebhookModule } from './modules/webhook/webhook.module.js';
 @Module({
   imports: [
     PrismaModule,
+    AdminRunsModule.register(),
     BullmqInfrastructureModule,
     ProcessingModule,
     BullBoardObservabilityModule.register(),
