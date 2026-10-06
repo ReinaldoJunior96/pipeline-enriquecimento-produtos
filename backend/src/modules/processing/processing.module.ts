@@ -10,7 +10,7 @@ import {
   PROCESS_ITEM_REPOSITORY,
   ProcessItemRepository,
 } from './domain/repositories/process-item.repository.js';
-import { InMemoryProcessingQueue } from './infrastructure/in-memory/in-memory-processing.queue.js';
+import { BullMqProcessingQueue } from './infrastructure/queues/bullmq-processing.queue.js';
 import { PROCESSING_QUEUE_NAME } from './infrastructure/queues/processing-queue.constants.js';
 import { PrismaProcessItemRepository } from './infrastructure/repositories/prisma-process-item.repository.js';
 import { ProcessingController } from './processing.controller.js';
@@ -28,7 +28,7 @@ import { ProcessingController } from './processing.controller.js';
     },
     {
       provide: PROCESSING_QUEUE,
-      useClass: InMemoryProcessingQueue,
+      useClass: BullMqProcessingQueue,
     },
     {
       provide: ReceberItemProcessamentoUseCase,
