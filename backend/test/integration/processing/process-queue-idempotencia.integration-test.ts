@@ -8,6 +8,7 @@ import { AppModule } from '../../../src/app.module.js';
 import { PrismaService } from '../../../src/infrastructure/database/prisma.service.js';
 import { ProcessItemInput } from '../../../src/modules/processing/domain/repositories/process-item.repository.js';
 import { PROCESSING_QUEUE_NAME } from '../../../src/modules/processing/infrastructure/queues/processing-queue.constants.js';
+import { ProcessingWorker } from '../../../src/modules/processing/infrastructure/workers/processing.worker.js';
 
 describe('Idempotência entre PostgreSQL e BullMQ', () => {
   const runId = 'run_queue_duplicate';
@@ -18,7 +19,10 @@ describe('Idempotência entre PostgreSQL e BullMQ', () => {
   beforeAll(async () => {
     const modulo = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(ProcessingWorker)
+      .useValue({})
+      .compile();
     app = modulo.createNestApplication();
     await app.init();
     prisma = app.get(PrismaService);
