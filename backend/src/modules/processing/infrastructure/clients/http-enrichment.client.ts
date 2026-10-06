@@ -3,6 +3,14 @@ import {
   EnrichmentInput,
   EnrichmentResult,
 } from '../../application/contracts/enrichment.client.js';
+import {
+  EnrichmentNotFoundError,
+  EnrichmentRateLimitError,
+  EnrichmentTransientError,
+  EnrichmentUnauthorizedError,
+} from '../../domain/errors/enrichment.errors.js';
+
+const RETRY_AFTER_PADRAO_EM_SEGUNDOS = 1;
 
 export interface HttpEnrichmentClientConfig {
   baseUrl: string;
@@ -27,9 +35,34 @@ export class HttpEnrichmentClient implements EnrichmentClient {
     );
 
     if (!response.ok) {
-      throw new Error(`Enriquecimento respondeu HTTP ${response.status}`);
+      this.lancarErroDaResposta(response);
     }
 
     return (await response.json()) as EnrichmentResult;
+  }
+
+  private lancarErroDaResposta(response: Response): never {
+    if (response.status === 429) {
+      const retryAfter = Number.parseFloat(
+        response.headers.get('retry-after') ?? '',
+      );
+      throw new EnrichmentRateLimitError(
+        Number.isFinite(retryAfter) && retryAfter >= 0
+          ? retryAfter
+          : RETRY_AFTER_PADRAO_EM_SEGUNDOS,
+      );
+    }
+
+    if (response.status === 401) {
+      throw new EnrichmentUnauthorizedError();
+    }
+
+    if (response.status === 404) {
+      throw new EnrichmentNotFoundError();
+    }
+
+    throw new EnrichmentTransientError(
+      `Falha HTTP ${response.status} no enriquecimento`,
+    );
   }
 }
