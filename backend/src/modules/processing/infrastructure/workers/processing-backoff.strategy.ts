@@ -1,4 +1,7 @@
-import { EnrichmentTransientError } from '../../domain/errors/enrichment.errors.js';
+import {
+  EnrichmentRateLimitError,
+  EnrichmentTransientError,
+} from '../../domain/errors/enrichment.errors.js';
 import {
   PROCESSING_JOB_BACKOFF_MS,
   PROCESSING_JOB_BACKOFF_TYPE,
@@ -9,6 +12,13 @@ export function processingBackoffStrategy(
   type?: string,
   error?: Error,
 ): number {
+  if (
+    type === PROCESSING_JOB_BACKOFF_TYPE &&
+    error instanceof EnrichmentRateLimitError
+  ) {
+    return error.retryAfterSeconds * 1_000;
+  }
+
   if (
     type === PROCESSING_JOB_BACKOFF_TYPE &&
     error instanceof EnrichmentTransientError
