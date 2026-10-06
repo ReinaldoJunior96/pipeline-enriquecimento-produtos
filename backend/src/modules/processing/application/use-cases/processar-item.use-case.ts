@@ -1,5 +1,8 @@
 import { EnrichmentClient } from '../contracts/enrichment.client.js';
-import { EnrichmentUnauthorizedError } from '../../domain/errors/enrichment.errors.js';
+import {
+  EnrichmentNotFoundError,
+  EnrichmentUnauthorizedError,
+} from '../../domain/errors/enrichment.errors.js';
 import {
   ProcessItemInput,
   ProcessItemRepository,
@@ -42,7 +45,10 @@ export class ProcessarItemUseCase {
         throw new Error('Não foi possível concluir o processamento do item');
       }
     } catch (error) {
-      if (error instanceof EnrichmentUnauthorizedError) {
+      if (
+        error instanceof EnrichmentUnauthorizedError ||
+        error instanceof EnrichmentNotFoundError
+      ) {
         await this.repositorio.markError({
           runId: input.runId,
           seq: input.seq,
