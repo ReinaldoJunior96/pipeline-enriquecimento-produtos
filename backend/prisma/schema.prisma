@@ -13,6 +13,13 @@ enum RunStatus {
   FAILED
 }
 
+enum RunItemStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  ERROR
+}
+
 model Run {
   runId         String    @id @map("run_id")
   cid           String
@@ -23,6 +30,26 @@ model Run {
   callbackSent  Boolean   @default(false) @map("callback_sent")
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  items         RunItem[]
 
   @@map("runs")
+}
+
+model RunItem {
+  id           Int           @id @default(autoincrement())
+  runId        String        @map("run_id")
+  seq          Int
+  sku          String
+  price        Decimal?      @db.Decimal(12, 2)
+  stock        Int?
+  status       RunItemStatus @default(PENDING)
+  attempts     Int           @default(0)
+  errorCode    String?       @map("error_code")
+  errorMessage String?       @map("error_message")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  run          Run           @relation(fields: [runId], references: [runId])
+
+  @@unique([runId, seq])
+  @@map("run_items")
 }

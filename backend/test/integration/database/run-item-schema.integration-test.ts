@@ -101,10 +101,21 @@ describe('Modelagem PostgreSQL dos itens do lote', () => {
       WHERE pg_class.relname = 'run_items'
     `;
     const definicoes = restricoes.map(({ definition }) => definition);
+    const indices = await prisma.$queryRaw<Array<{ indexdef: string }>>`
+      SELECT indexdef
+      FROM pg_indexes
+      WHERE schemaname = 'public'
+        AND tablename = 'run_items'
+        AND indexname = 'run_items_run_id_seq_key'
+    `;
 
     expect(definicoes).toContain(
       'FOREIGN KEY (run_id) REFERENCES runs(run_id) ON UPDATE CASCADE ON DELETE RESTRICT',
     );
-    expect(definicoes).toContain('UNIQUE (run_id, seq)');
+    expect(indices).toHaveLength(1);
+    expect(indices[0].indexdef).toContain(
+      'UNIQUE INDEX run_items_run_id_seq_key',
+    );
+    expect(indices[0].indexdef).toContain('(run_id, seq)');
   });
 });
