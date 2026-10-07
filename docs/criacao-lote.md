@@ -1,40 +1,36 @@
 # Criação do lote
 
-Após o registro e validação do webhook, o serviço recebe um `cid` e um `token`.
+Depois do registro, o fluxo segue pelo Swagger:
 
-Essas informações são utilizadas para solicitar a criação de uma nova execução na plataforma externa.
+```text
+http://localhost:3000/docs
+```
 
-## Solicitação do lote
+## Solicitar um lote
 
-No fluxo normal, o operador copia o `cid` e o `token` retornados pelo `POST /platform/register` e envia ao backend:
+Execute:
 
 ```http
 POST /runs/burst
-Content-Type: application/json
+```
 
+Body:
+
+```json
 {
   "cid": "<cid>",
   "token": "<token>"
 }
 ```
 
-O backend realiza a chamada externa:
+O backend chama a plataforma externa:
 
 ```http
 POST /burst/:cid
 x-token: <token>
 ```
 
-Onde:
-
-- `cid` identifica o cadastro realizado anteriormente;
-- `x-token` autentica a requisição.
-
-A plataforma externa valida se o `cid` e o `token` correspondem a uma credencial válida.
-
-## Criação da execução
-
-Em caso de sucesso, a plataforma externa cria um novo lote e retorna os metadados da execução:
+Em caso de sucesso, a plataforma retorna os dados da execução:
 
 ```json
 {
@@ -45,61 +41,11 @@ Em caso de sucesso, a plataforma externa cria um novo lote e retorna os metadado
 }
 ```
 
-Os campos representam:
+## Persistência
 
-- `run_id`: identificador único da execução;
-- `total`: quantidade total de itens que serão enviados para processamento;
-- `started_at`: data e hora de início da execução.
+Antes de responder ao cliente, a aplicação salva a run no PostgreSQL.
 
-Cada nova chamada ao `/burst/:cid` gera uma nova execução e, consequentemente, um novo `run_id`.
-
-## Persistência do lote
-
-Após validar a resposta externa do `/burst/:cid`, o backend persiste os dados da execução antes de responder `201` ao cliente. Portanto, uma resposta de sucesso de `POST /runs/burst` significa que a run já foi criada internamente.
-
-O token é usado apenas para a chamada externa e fica associado ao `runId` no Redis pelo TTL configurado em `PLATFORM_AUTH_TTL_SECONDS` (padrão de 30 minutos) para autenticar o enrich. Ele não é persistido no PostgreSQL nem registrado em logs.
-
-O objetivo dessa persistência é manter o controle do ciclo de vida do lote durante todo o processamento.
-
-A tabela proposta para esse controle é:
-
-```text
-runs
-```
-
-Com os seguintes campos:
-
-```text
-run_id
-cid
-total
-started_at
-status
-finished_count
-callback_sent
-created_at
-updated_at
-```
-
-### Responsabilidade dos campos
-
-- `run_id`: identificador único do lote;
-- `cid`: identificador do cadastro na plataforma externa;
-- `total`: quantidade total de itens esperados;
-- `started_at`: momento em que a plataforma iniciou a execução;
-- `status`: estado atual do lote;
-- `finished_count`: quantidade de itens já finalizados;
-- `callback_sent`: informa se o resultado final já foi enviado;
-- `created_at`: data de criação do registro interno;
-- `updated_at`: data da última atualização do lote.
-
-O `run_id` deve ser único:
-
-```text
-UNIQUE (run_id)
-```
-
-Ao criar o lote internamente, o estado inicial será equivalente a:
+Estado inicial:
 
 ```text
 status = PROCESSING
@@ -107,46 +53,40 @@ finished_count = 0
 callback_sent = false
 ```
 
-## Relação com os itens processados
+O `run_id` é único e identifica toda a execução.
 
-A tabela `runs` representa o lote como um todo.
-
-Os itens individuais recebidos posteriormente pelo endpoint `/process` serão persistidos em outra tabela:
+A credencial usada no burst não é salva no PostgreSQL. Após a criação da run, `cid` e `token` ficam temporariamente no Redis associados ao `runId`, com TTL configurado por:
 
 ```text
-run_items
+PLATFORM_AUTH_TTL_SECONDS
 ```
 
-O relacionamento entre as duas estruturas será feito através do `run_id`:
+## Decisão arquitetural
 
-```text
-runs.run_id
-    1
-    |
-    |---- N
-            run_items.run_id
-```
+A run retornada pelo `/burst` é persistida no PostgreSQL antes do processamento dos itens.
 
-Assim, um lote pode possuir vários itens processados.
+Essa decisão foi adotada para manter:
 
-Essa separação permite:
+- rastreabilidade da execução;
+- controle de estado do lote;
+- progresso por `finished_count`;
+- relação com os itens recebidos em `/process`;
+- recuperação e auditoria em caso de falhas;
+- controle do envio do callback final.
 
-- acompanhar o progresso da execução;
-- manter rastreabilidade por item;
-- controlar mensagens duplicadas;
-- identificar falhas individuais;
-- saber quando todos os itens do lote foram finalizados;
-- controlar o envio do callback final.
+O trade-off é adicionar uma etapa de persistência antes de considerar a criação do lote concluída, aumentando ligeiramente a complexidade do fluxo.
 
-## Início do processamento
+Em contrapartida, o PostgreSQL passa a ser a fonte da verdade da execução, enquanto Redis/BullMQ ficam responsáveis por estado efêmero e processamento assíncrono.
 
-Após a criação do lote, a plataforma externa começa a enviar os itens da execução para:
+## Próximo passo
+
+Após a criação do lote, a plataforma começa a enviar os itens para:
 
 ```http
 POST /process
 ```
 
-Cada mensagem possui um payload semelhante a:
+Exemplo:
 
 ```json
 {
@@ -156,48 +96,29 @@ Cada mensagem possui um payload semelhante a:
 }
 ```
 
-O `run_id` recebido no `/process` permite associar cada item ao lote previamente persistido na tabela `runs`.
+A partir daí, o processamento é assíncrono.
 
-A partir desse momento, o processamento passa a ser responsabilidade do fluxo assíncrono da aplicação.
-
-## Atualização do lote
-
-À medida que os itens são processados, o registro correspondente em `runs` é atualizado.
-
-Por exemplo:
-
-```text
-finished_count = 12
-status = PROCESSING
-```
-
-Quando todos os itens únicos tiverem sido finalizados:
+Quando todos os itens forem finalizados:
 
 ```text
 finished_count == total
 ```
 
-o lote estará pronto para consolidação e envio do resultado final.
+a aplicação consolida o resultado e envia o `/callback`.
 
-Após a confirmação do `/callback`, o lote é atualizado para:
+Após a confirmação do callback:
 
 ```text
 status = COMPLETED
 callback_sent = true
 ```
 
-## Tratamento de falhas
+## Visão da arquitetura
 
-A documentação fornecida não especifica um contrato de erro próprio para o endpoint `/burst/:cid`.
-
-Por esse motivo, a arquitetura considera apenas o fluxo de sucesso documentado e evita assumir códigos ou formatos de erro não definidos pelo contrato.
-
-## Diagrama
+O diagrama abaixo mostra o fluxo completo de criação da run e início do processamento:
 
 ![Arquitetura de criação de lote](../Arquitetura-Criacao-de-lote.jpg)
 
-## Próxima etapa
-
-O fluxo continua no processamento assíncrono dos itens:
+Para continuar:
 
 [Processamento assíncrono](./processamento.md)

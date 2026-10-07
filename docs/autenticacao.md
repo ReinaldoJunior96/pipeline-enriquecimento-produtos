@@ -1,32 +1,39 @@
-# Autenticação e registro do webhook
+# Autenticação e registro
 
-O fluxo normal começa pela API do próprio backend, disponível em `http://localhost:3000/docs`.
+O fluxo começa pelo Swagger da aplicação:
 
-Execute `POST /platform/register` com nome e webhook publicamente acessível (por exemplo, a URL atual do ngrok):
+```text
+http://localhost:3000/docs
+```
 
-A aplicação envia:
+## Registro
+
+Execute:
 
 ```http
 POST /platform/register
-Content-Type: application/json
+```
 
+Body:
+
+```json
 {
   "name": "Nome para o registro",
   "webhook": "https://seu-ngrok.ngrok-free.app"
 }
 ```
 
-O backend encaminha o registro para `PLATAFORMA_REGISTER_URL`. A plataforma realiza o handshake chamando:
+A aplicação encaminha o registro para a plataforma externa.
+
+Durante o registro, a plataforma valida o webhook chamando:
 
 ```http
 POST <webhook>/check
 ```
 
-O endpoint `/check` devolve o token recebido sem alteração. Em caso de sucesso, `/platform/register` retorna `cid` e `token` para o operador copiar e usar no `POST /runs/burst`.
+O endpoint `/check` devolve o token recebido e conclui o handshake.
 
-O token não é persistido nem logado. Depois que a run é persistida, CID/token ficam no Redis associados ao `runId`, com TTL configurável (`PLATFORM_AUTH_TTL_SECONDS`, padrão de 1800 segundos), para o processamento de enrich.
-
-Resposta:
+Em caso de sucesso, o registro retorna:
 
 ```json
 {
@@ -35,5 +42,42 @@ Resposta:
 }
 ```
 
-Para o fluxo manual completo, consulte [Teste real manual pelo Swagger](./teste-real-manual.md).
+Esses valores são usados no `POST /runs/burst`.
+
+## Credencial durante a execução
+
+O token:
+
+- não é persistido no PostgreSQL;
+- não é enviado nos jobs BullMQ;
+- não é registrado em logs.
+
+Após a criação da run, `cid` e `token` ficam temporariamente no Redis associados ao `runId`.
+
+```text
+platform:auth:run:<runId>
+```
+
+O TTL é configurado por:
+
+```text
+PLATFORM_AUTH_TTL_SECONDS
+```
+
+Padrão:
+
+```text
+1800 segundos
+```
+
+A credencial é removida após o callback ser confirmado.
+
+## Visão da arquitetura
+
+O diagrama abaixo apresenta uma visão mais ampla do fluxo de autenticação e do ciclo da credencial:
+
 ![Arquitetura de autenticação](../Arquitetura-Autenticacao-usuario.jpg)
+
+Para executar o fluxo completo, consulte:
+
+[Teste real manual pelo Swagger](./teste-real-manual.md)
