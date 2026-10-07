@@ -6,6 +6,10 @@ import {
   EnrichmentClient,
 } from './application/contracts/enrichment.client.js';
 import {
+  PENDING_RUN_QUEUE,
+  PendingRunQueue,
+} from './application/queues/pending-run.queue.js';
+import {
   PROCESSING_QUEUE,
   ProcessingQueue,
 } from './application/queues/processing.queue.js';
@@ -16,17 +20,22 @@ import {
   ProcessItemRepository,
 } from './domain/repositories/process-item.repository.js';
 import { BullMqProcessingQueue } from './infrastructure/queues/bullmq-processing.queue.js';
+import { BullMqPendingRunQueue } from './infrastructure/queues/bullmq-pending-run.queue.js';
+import { PENDING_RUN_QUEUE_NAME } from './infrastructure/queues/pending-run-queue.constants.js';
 import { PROCESSING_QUEUE_NAME } from './infrastructure/queues/processing-queue.constants.js';
 import { PrismaProcessItemRepository } from './infrastructure/repositories/prisma-process-item.repository.js';
 import { DevelopmentEnrichmentClient } from './infrastructure/clients/development-enrichment.client.js';
 import { criarEnrichmentClient } from './infrastructure/clients/enrichment-client.provider.js';
 import { ProcessingWorker } from './infrastructure/workers/processing.worker.js';
 import { ProcessingController } from './processing.controller.js';
+import { RunRepository } from '../runs/domain/repositories/run.repository.js';
+import { PrismaRunRepository } from '../runs/infrastructure/repositories/prisma-run.repository.js';
 
 @Module({
   imports: [
     PrismaModule,
     BullModule.registerQueue({ name: PROCESSING_QUEUE_NAME }),
+    BullModule.registerQueue({ name: PENDING_RUN_QUEUE_NAME }),
   ],
   controllers: [ProcessingController],
   providers: [
@@ -38,6 +47,11 @@ import { ProcessingController } from './processing.controller.js';
       provide: PROCESSING_QUEUE,
       useClass: BullMqProcessingQueue,
     },
+    PrismaRunRepository,
+    {
+      provide: PENDING_RUN_QUEUE,
+      useClass: BullMqPendingRunQueue,
+    },
     DevelopmentEnrichmentClient,
     {
       provide: ENRICHMENT_CLIENT,
@@ -47,9 +61,24 @@ import { ProcessingController } from './processing.controller.js';
     },
     {
       provide: ReceberItemProcessamentoUseCase,
-      inject: [PROCESS_ITEM_REPOSITORY, PROCESSING_QUEUE],
-      useFactory: (repositorio: ProcessItemRepository, fila: ProcessingQueue) =>
-        new ReceberItemProcessamentoUseCase(repositorio, fila),
+      inject: [
+        PROCESS_ITEM_REPOSITORY,
+        PROCESSING_QUEUE,
+        PrismaRunRepository,
+        PENDING_RUN_QUEUE,
+      ],
+      useFactory: (
+        repositorio: ProcessItemRepository,
+        fila: ProcessingQueue,
+        lotes: RunRepository,
+        filaDeEspera: PendingRunQueue,
+      ) =>
+        new ReceberItemProcessamentoUseCase(
+          repositorio,
+          fila,
+          lotes,
+          filaDeEspera,
+        ),
     },
     {
       provide: ProcessarItemUseCase,
