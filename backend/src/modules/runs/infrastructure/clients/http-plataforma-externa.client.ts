@@ -1,3 +1,4 @@
+import { isISO8601 } from 'class-validator';
 import {
   CredenciaisDaPlataforma,
   CriarLoteNaPlataformaInput,
@@ -74,8 +75,8 @@ export class HttpPlataformaExternaClient implements PlataformaExternaClient {
       !Number.isInteger(total) ||
       total < 1 ||
       typeof startedAt !== 'string' ||
-      !Number.isFinite(data.getTime()) ||
-      data.toISOString() !== startedAt
+      !isISO8601(startedAt, { strict: true }) ||
+      !Number.isFinite(data.getTime())
     ) {
       throw new PlataformaExternaClientError(
         'Resposta inválida recebida na criação do lote',

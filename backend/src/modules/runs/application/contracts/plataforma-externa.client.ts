@@ -1,3 +1,5 @@
+export const PLATAFORMA_EXTERNA_CLIENT = Symbol('PLATAFORMA_EXTERNA_CLIENT');
+
 export interface CriarLoteNaPlataformaInput {
   cid: string;
   token: string;

@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
@@ -39,16 +39,26 @@ describe('Criação de burst pela API (e2e)', () => {
   });
 
   it('deve solicitar burst, persistir a run e responder HTTP 201', async () => {
-    await request(app.getHttpServer())
-      .post('/runs/burst')
-      .send({ cid: 'cid_burst_e2e', token: 'token_fake' })
-      .expect(201)
-      .expect({
-        run_id: 'run_burst_e2e',
-        cid: 'cid_burst_e2e',
-        total: 20,
-        started_at: '2026-10-07T13:20:54.872Z',
-      });
+    const log = vi
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+
+    try {
+      await request(app.getHttpServer())
+        .post('/runs/burst')
+        .send({ cid: 'cid_burst_e2e', token: 'token_fake' })
+        .expect(201)
+        .expect({
+          run_id: 'run_burst_e2e',
+          cid: 'cid_burst_e2e',
+          total: 20,
+          started_at: '2026-10-07T13:20:54.872Z',
+        });
+
+      expect(log.mock.calls.flat().join(' ')).not.toContain('token_fake');
+    } finally {
+      log.mockRestore();
+    }
 
     expect(cliente.chamadas).toEqual([
       { cid: 'cid_burst_e2e', token: 'token_fake' },
@@ -69,5 +79,14 @@ describe('Criação de burst pela API (e2e)', () => {
       .expect(400);
 
     expect(cliente.chamadas).toHaveLength(1);
+  });
+
+  it('deve responder conflito se a plataforma devolver uma run já persistida', async () => {
+    await request(app.getHttpServer())
+      .post('/runs/burst')
+      .send({ cid: 'cid_burst_e2e', token: 'token_fake' })
+      .expect(409);
+
+    expect(repositorio.runs).toHaveLength(1);
   });
 });

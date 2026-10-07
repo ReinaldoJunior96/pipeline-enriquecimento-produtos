@@ -1,5 +1,6 @@
 import { FakePlataformaExternaClient } from '../../../../../test/fakes/fake-plataforma-externa.client.js';
 import { FakeRunRepository } from '../../../../../test/fakes/fake-run.repository.js';
+import { RunAlreadyExistsError } from '../../domain/errors/run-already-exists.error.js';
 import { CriarLoteUseCase } from './criar-lote.use-case.js';
 
 describe('Criar lote', () => {
@@ -89,5 +90,28 @@ describe('Criar lote', () => {
       criarLote.execute({ cid: 'cid_teste', token: 'token_teste' }),
     ).rejects.toThrow('falha no banco');
     expect(repositorio.create).toHaveBeenCalledOnce();
+  });
+
+  it('deve propagar conflito quando a plataforma devolver uma run já cadastrada', async () => {
+    const startedAt = new Date('2026-10-07T13:20:54.872Z');
+    const cliente = new FakePlataformaExternaClient({
+      runId: 'run_duplicada',
+      cid: 'cid_teste',
+      total: 1,
+      startedAt,
+    });
+    const repositorio = new FakeRunRepository();
+    await repositorio.create({
+      runId: 'run_duplicada',
+      cid: 'cid_teste',
+      total: 1,
+      startedAt,
+    });
+    const criarLote = new CriarLoteUseCase(cliente, repositorio);
+
+    await expect(
+      criarLote.execute({ cid: 'cid_teste', token: 'token_teste' }),
+    ).rejects.toBeInstanceOf(RunAlreadyExistsError);
+    expect(repositorio.runs).toHaveLength(1);
   });
 });

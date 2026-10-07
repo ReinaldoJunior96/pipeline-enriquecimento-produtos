@@ -140,6 +140,26 @@ describe('HttpPlataformaExternaClient', () => {
     }
   });
 
+  it('deve classificar erro 5xx como falha da plataforma', async () => {
+    const servidor = await iniciarServidor({
+      status: 503,
+      corpo: { message: 'Indisponível' },
+    });
+
+    try {
+      const cliente = new HttpPlataformaExternaClient({
+        registerUrl: `${servidor.baseUrl}/register`,
+        baseUrl: servidor.baseUrl,
+      });
+
+      await expect(
+        cliente.registrar({ name: 'Teste', webhook: 'https://example.test' }),
+      ).rejects.toMatchObject({ tipo: 'PLATAFORMA', status: 503 });
+    } finally {
+      await fecharServidor(servidor.servidor);
+    }
+  });
+
   it('deve classificar resposta malformada como erro de integração', async () => {
     const servidor = await iniciarServidor({
       status: 200,
@@ -154,6 +174,31 @@ describe('HttpPlataformaExternaClient', () => {
 
       await expect(
         cliente.registrar({ name: 'Teste', webhook: 'https://example.test' }),
+      ).rejects.toMatchObject({ tipo: 'RESPOSTA_INVALIDA' });
+    } finally {
+      await fecharServidor(servidor.servidor);
+    }
+  });
+
+  it('deve validar os campos obrigatórios da resposta de burst', async () => {
+    const servidor = await iniciarServidor({
+      status: 200,
+      corpo: {
+        run_id: 'run_fake',
+        cid: 'cid_fake',
+        total: 0,
+        started_at: 'data-inválida',
+      },
+    });
+
+    try {
+      const cliente = new HttpPlataformaExternaClient({
+        registerUrl: `${servidor.baseUrl}/register`,
+        baseUrl: servidor.baseUrl,
+      });
+
+      await expect(
+        cliente.criarLote({ cid: 'cid_fake', token: 'token_fake' }),
       ).rejects.toMatchObject({ tipo: 'RESPOSTA_INVALIDA' });
     } finally {
       await fecharServidor(servidor.servidor);

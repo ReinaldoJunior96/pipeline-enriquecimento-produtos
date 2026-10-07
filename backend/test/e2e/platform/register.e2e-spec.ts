@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
@@ -32,14 +32,24 @@ describe('Registro da plataforma pela API (e2e)', () => {
   beforeEach(() => registrar.mockClear());
 
   it('deve devolver as credenciais recebidas sem persistir o token', async () => {
-    await request(app.getHttpServer())
-      .post('/platform/register')
-      .send({
-        name: 'Reinaldo Junior',
-        webhook: 'https://webhook.example.test',
-      })
-      .expect(200)
-      .expect({ cid: 'cid_fake', token: 'token_fake' });
+    const log = vi
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+
+    try {
+      await request(app.getHttpServer())
+        .post('/platform/register')
+        .send({
+          name: 'Reinaldo Junior',
+          webhook: 'https://webhook.example.test',
+        })
+        .expect(200)
+        .expect({ cid: 'cid_fake', token: 'token_fake' });
+
+      expect(log.mock.calls.flat().join(' ')).not.toContain('token_fake');
+    } finally {
+      log.mockRestore();
+    }
 
     expect(registrar).toHaveBeenCalledWith({
       name: 'Reinaldo Junior',
