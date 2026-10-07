@@ -13,6 +13,7 @@ import { PrismaProcessItemRepository } from '../../../src/modules/processing/inf
 import { PrismaRunRepository } from '../../../src/modules/runs/infrastructure/repositories/prisma-run.repository.js';
 import { EnrichmentNotFoundError } from '../../../src/modules/processing/domain/errors/enrichment.errors.js';
 import { ProcessarItemUseCase } from '../../../src/modules/processing/application/use-cases/processar-item.use-case.js';
+import { GarantirCallbackDaRunUseCase } from '../../../src/modules/processing/application/use-cases/garantir-callback-da-run.use-case.js';
 import { FakeEnrichmentClient } from '../../fakes/fake-enrichment.client.js';
 import { BullMqCallbackQueue } from '../../../src/modules/callback/infrastructure/queues/bullmq-callback.queue.js';
 import { ConsolidarResultadoRunUseCase } from '../../../src/modules/callback/application/use-cases/consolidar-resultado-run.use-case.js';
@@ -126,7 +127,7 @@ describe('Fluxo integrado de conclusão e callback', () => {
     const processar = new ProcessarItemUseCase(
       items,
       enrichment,
-      callbackQueue,
+      new GarantirCallbackDaRunUseCase(runs, callbackQueue),
     );
 
     for (let seq = 0; seq < total; seq += 1) {
@@ -190,7 +191,7 @@ describe('Fluxo integrado de conclusão e callback', () => {
     const processar = new ProcessarItemUseCase(
       items,
       enrichment,
-      callbackQueue,
+      new GarantirCallbackDaRunUseCase(runs, callbackQueue),
     );
     const skus = ['sku-0', 'sku-1', 'sku-2'];
     for (let seq = 0; seq < skus.length; seq += 1) {

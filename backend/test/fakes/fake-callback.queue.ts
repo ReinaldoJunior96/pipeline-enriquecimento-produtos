@@ -4,6 +4,6 @@ export class FakeCallbackQueue implements CallbackQueue {
   readonly runIds: string[] = [];
 
   async enqueue(runId: string): Promise<void> {
-    this.runIds.push(runId);
+    if (!this.runIds.includes(runId)) this.runIds.push(runId);
   }
 }

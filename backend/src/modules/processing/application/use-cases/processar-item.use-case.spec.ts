@@ -3,6 +3,26 @@ import { FakeProcessItemRepository } from '../../../../../test/fakes/fake-proces
 import { ProcessarItemUseCase } from './processar-item.use-case.js';
 import { FakeCallbackQueue } from '../../../../../test/fakes/fake-callback.queue.js';
 import { EnrichmentNotFoundError } from '../../domain/errors/enrichment.errors.js';
+import { GarantirCallbackDaRunUseCase } from './garantir-callback-da-run.use-case.js';
+
+function callbackGarantir(callbackQueue: FakeCallbackQueue) {
+  return new GarantirCallbackDaRunUseCase(
+    {
+      findById: async (runId) => ({
+        runId,
+        cid: 'cid-test',
+        total: 1,
+        finishedCount: 1,
+        callbackSent: false,
+        status: 'PROCESSING',
+        startedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    },
+    callbackQueue,
+  );
+}
 
 describe('Processar item', () => {
   it('deve agendar callback uma vez quando o item terminal conclui a run', async () => {
@@ -20,15 +40,47 @@ describe('Processar item', () => {
     const processarItem = new ProcessarItemUseCase(
       repositorio,
       cliente,
-      callbackQueue,
+      callbackGarantir(callbackQueue),
     );
 
     await processarItem.execute(item);
-    await expect(processarItem.execute(item)).rejects.toThrow(
-      'Item com status SUCCESS não pode ser processado',
-    );
+    await expect(processarItem.execute(item)).resolves.toBeUndefined();
 
     expect(callbackQueue.runIds).toEqual(['run_callback_final']);
+  });
+
+  it('deve recuperar o agendamento se o enqueue falhar após o item ficar terminal', async () => {
+    const repositorio = new FakeProcessItemRepository();
+    const cliente = new FakeEnrichmentClient();
+    const callbackQueue = new FakeCallbackQueue();
+    const item = { runId: 'run_callback_retry', seq: 0, sku: 'sku-retry' };
+    repositorio.definirTotalDaRun(item.runId, 1);
+    await repositorio.registerIfNew(item);
+    cliente.responderCom(item.sku, {
+      sku: item.sku,
+      price: 10,
+      stock: 2,
+    });
+    const enqueue = vi
+      .spyOn(callbackQueue, 'enqueue')
+      .mockRejectedValueOnce(new Error('Redis indisponível'));
+    const processarItem = new ProcessarItemUseCase(
+      repositorio,
+      cliente,
+      callbackGarantir(callbackQueue),
+    );
+
+    await expect(processarItem.execute(item)).rejects.toThrow(
+      'Redis indisponível',
+    );
+    await expect(
+      repositorio.findByRunIdAndSeq(item.runId, item.seq),
+    ).resolves.toMatchObject({ status: 'SUCCESS' });
+
+    await expect(processarItem.execute(item)).resolves.toBeUndefined();
+
+    expect(enqueue).toHaveBeenCalledTimes(2);
+    expect(callbackQueue.runIds).toEqual(['run_callback_retry']);
   });
 
   it('deve agendar callback após todos os itens terminarem, inclusive com ERROR', async () => {
@@ -49,7 +101,7 @@ describe('Processar item', () => {
     const processarItem = new ProcessarItemUseCase(
       repositorio,
       cliente,
-      callbackQueue,
+      callbackGarantir(callbackQueue),
     );
 
     await processarItem.execute(sucesso);
@@ -73,7 +125,7 @@ describe('Processar item', () => {
     const processarItem = new ProcessarItemUseCase(
       repositorio,
       cliente,
-      new FakeCallbackQueue(),
+      callbackGarantir(new FakeCallbackQueue()),
     );
 
     await processarItem.execute(item);
@@ -109,12 +161,10 @@ describe('Processar item', () => {
     const processarItem = new ProcessarItemUseCase(
       repositorio,
       cliente,
-      new FakeCallbackQueue(),
+      callbackGarantir(new FakeCallbackQueue()),
     );
 
-    await expect(processarItem.execute(item)).rejects.toThrow(
-      'Item com status SUCCESS não pode ser processado',
-    );
+    await expect(processarItem.execute(item)).resolves.toBeUndefined();
     expect(cliente.chamadas).toHaveLength(0);
   });
 
@@ -133,12 +183,10 @@ describe('Processar item', () => {
     const processarItem = new ProcessarItemUseCase(
       repositorio,
       cliente,
-      new FakeCallbackQueue(),
+      callbackGarantir(new FakeCallbackQueue()),
     );
 
-    await expect(processarItem.execute(item)).rejects.toThrow(
-      'Item com status ERROR não pode ser processado',
-    );
+    await expect(processarItem.execute(item)).resolves.toBeUndefined();
     expect(cliente.chamadas).toHaveLength(0);
   });
 
@@ -148,7 +196,7 @@ describe('Processar item', () => {
     const processarItem = new ProcessarItemUseCase(
       repositorio,
       cliente,
-      new FakeCallbackQueue(),
+      callbackGarantir(new FakeCallbackQueue()),
     );
 
     await expect(

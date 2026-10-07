@@ -10,7 +10,7 @@ import {
   ProcessItemFinalization,
   ProcessItemRepository,
 } from '../../domain/repositories/process-item.repository.js';
-import { CallbackQueue } from '../../../callback/application/contracts/callback.queue.js';
+import { GarantirCallbackDaRunUseCase } from './garantir-callback-da-run.use-case.js';
 
 export class ProcessarItemUseCase {
   private readonly logger = new Logger(ProcessarItemUseCase.name);
@@ -18,7 +18,7 @@ export class ProcessarItemUseCase {
   constructor(
     private readonly repositorio: ProcessItemRepository,
     private readonly cliente: EnrichmentClient,
-    private readonly callbackQueue: CallbackQueue,
+    private readonly garantirCallback: GarantirCallbackDaRunUseCase,
   ) {}
 
   async execute(input: ProcessItemInput): Promise<void> {
@@ -29,6 +29,11 @@ export class ProcessarItemUseCase {
 
     if (!item) {
       throw new Error('Item de processamento não encontrado');
+    }
+
+    if (item.status === 'SUCCESS' || item.status === 'ERROR') {
+      await this.garantirCallback.execute(input.runId);
+      return;
     }
 
     const tentativa = item.attempts + 1;
@@ -139,7 +144,7 @@ export class ProcessarItemUseCase {
 
     if (!finalizacao.completed) return;
 
-    await this.callbackQueue.enqueue(finalizacao.runId);
+    await this.garantirCallback.execute(finalizacao.runId, true);
     this.logger.log({
       evento: 'callback.agendado',
       runId: finalizacao.runId,

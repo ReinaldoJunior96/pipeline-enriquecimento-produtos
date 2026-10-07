@@ -18,6 +18,7 @@ import {
   ProcessingQueue,
 } from './application/queues/processing.queue.js';
 import { ReceberItemProcessamentoUseCase } from './application/use-cases/receber-item-processamento.use-case.js';
+import { GarantirCallbackDaRunUseCase } from './application/use-cases/garantir-callback-da-run.use-case.js';
 import { ProcessarItemAguardandoRunUseCase } from './application/use-cases/processar-item-aguardando-run.use-case.js';
 import { ProcessarItemUseCase } from './application/use-cases/processar-item.use-case.js';
 import {
@@ -103,12 +104,22 @@ import {
     },
     {
       provide: ProcessarItemUseCase,
-      inject: [PROCESS_ITEM_REPOSITORY, ENRICHMENT_CLIENT, CALLBACK_QUEUE],
+      inject: [
+        PROCESS_ITEM_REPOSITORY,
+        ENRICHMENT_CLIENT,
+        GarantirCallbackDaRunUseCase,
+      ],
       useFactory: (
         repositorio: ProcessItemRepository,
         cliente: EnrichmentClient,
-        callbackQueue: CallbackQueue,
-      ) => new ProcessarItemUseCase(repositorio, cliente, callbackQueue),
+        garantirCallback: GarantirCallbackDaRunUseCase,
+      ) => new ProcessarItemUseCase(repositorio, cliente, garantirCallback),
+    },
+    {
+      provide: GarantirCallbackDaRunUseCase,
+      inject: [PrismaRunRepository, CALLBACK_QUEUE],
+      useFactory: (runs: RunRepository, callbackQueue: CallbackQueue) =>
+        new GarantirCallbackDaRunUseCase(runs, callbackQueue),
     },
     PendingRunWorker,
     ProcessingWorker,
