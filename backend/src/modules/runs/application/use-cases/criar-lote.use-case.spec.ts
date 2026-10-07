@@ -1,5 +1,6 @@
 import { FakePlataformaExternaClient } from '../../../../../test/fakes/fake-plataforma-externa.client.js';
 import { FakeRunRepository } from '../../../../../test/fakes/fake-run.repository.js';
+import { FakePlatformAuthContextStore } from '../../../../../test/fakes/fake-platform-auth-context.store.js';
 import { RunAlreadyExistsError } from '../../domain/errors/run-already-exists.error.js';
 import { CriarLoteUseCase } from './criar-lote.use-case.js';
 
@@ -102,12 +103,18 @@ describe('Criar lote', () => {
     });
     cliente.falharBurstCom(new Error('falha externa'));
     const repositorio = new FakeRunRepository();
-    const criarLote = new CriarLoteUseCase(cliente, repositorio);
+    const authContext = new FakePlatformAuthContextStore();
+    const criarLote = new CriarLoteUseCase(
+      cliente,
+      repositorio,
+      authContext as never,
+    );
 
     await expect(
       criarLote.execute({ cid: 'cid_teste', token: 'token_teste' }),
     ).rejects.toThrow('falha externa');
     expect(repositorio.runs).toHaveLength(0);
+    await expect(authContext.getForRun('run_falha_externa')).resolves.toBeNull();
   });
 
   it('deve propagar falha de persistência após o burst externo', async () => {
@@ -120,12 +127,49 @@ describe('Criar lote', () => {
       create: vi.fn().mockRejectedValue(new Error('falha no banco')),
       exists: vi.fn(),
     };
-    const criarLote = new CriarLoteUseCase(cliente, repositorio);
+    const authContext = new FakePlatformAuthContextStore();
+    const criarLote = new CriarLoteUseCase(
+      cliente,
+      repositorio,
+      authContext as never,
+    );
 
     await expect(
       criarLote.execute({ cid: 'cid_teste', token: 'token_teste' }),
     ).rejects.toThrow('falha no banco');
     expect(repositorio.create).toHaveBeenCalledOnce();
+    await expect(
+      authContext.getForRun('run_falha_persistencia'),
+    ).resolves.toBeNull();
+  });
+
+  it('deve propagar falha ao salvar auth sem esconder que a run já foi persistida', async () => {
+    const cliente = new FakePlataformaExternaClient({
+      runId: 'run_auth_indisponivel',
+      cid: 'cid_teste',
+      total: 1,
+      startedAt: new Date('2026-10-07T13:20:54.872Z'),
+    });
+    const repositorio = new FakeRunRepository();
+    const authContext = {
+      saveForRun: vi.fn().mockRejectedValue(new Error('Falha segura ao salvar auth')),
+    };
+    const criarLote = new CriarLoteUseCase(
+      cliente,
+      repositorio,
+      authContext as never,
+    );
+
+    await expect(
+      criarLote.execute({ cid: 'cid_teste', token: 'token_teste' }),
+    ).rejects.toThrow('Falha segura ao salvar auth');
+
+    expect(repositorio.runs).toHaveLength(1);
+    expect(authContext.saveForRun).toHaveBeenCalledWith({
+      runId: 'run_auth_indisponivel',
+      cid: 'cid_teste',
+      token: 'token_teste',
+    });
   });
 
   it('deve propagar conflito quando a plataforma devolver uma run já cadastrada', async () => {
