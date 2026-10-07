@@ -62,32 +62,55 @@ export class PrismaProcessItemRepository implements ProcessItemRepository {
   }
 
   async markSuccess(input: MarkProcessItemSuccessInput): Promise<boolean> {
-    const resultado = await this.prisma.runItem.updateMany({
-      where: { runId: input.runId, seq: input.seq, status: 'PROCESSING' },
-      data: {
-        status: 'SUCCESS',
-        price: input.price,
-        stock: input.stock,
-        errorCode: null,
-        errorMessage: null,
-      },
+    return this.finalizarItem(input.runId, input.seq, {
+      status: 'SUCCESS',
+      price: input.price,
+      stock: input.stock,
+      errorCode: null,
+      errorMessage: null,
     });
-
-    return resultado.count === 1;
   }
 
   async markError(input: MarkProcessItemErrorInput): Promise<boolean> {
-    const resultado = await this.prisma.runItem.updateMany({
-      where: { runId: input.runId, seq: input.seq, status: 'PROCESSING' },
-      data: {
-        status: 'ERROR',
-        price: null,
-        stock: null,
-        errorCode: input.errorCode,
-        errorMessage: input.errorMessage,
-      },
+    return this.finalizarItem(input.runId, input.seq, {
+      status: 'ERROR',
+      price: null,
+      stock: null,
+      errorCode: input.errorCode,
+      errorMessage: input.errorMessage,
     });
+  }
 
-    return resultado.count === 1;
+  private async finalizarItem(
+    runId: string,
+    seq: number,
+    data: Prisma.RunItemUpdateManyMutationInput,
+  ): Promise<boolean> {
+    return this.prisma.$transaction(async (transacao) => {
+      const itemAtualizado = await transacao.runItem.updateMany({
+        where: { runId, seq, status: 'PROCESSING' },
+        data,
+      });
+
+      if (itemAtualizado.count === 0) return false;
+
+      const run = await transacao.run.findUniqueOrThrow({
+        where: { runId },
+        select: { total: true },
+      });
+
+      const runAtualizada = await transacao.run.updateMany({
+        where: { runId, finishedCount: { lt: run.total } },
+        data: { finishedCount: { increment: 1 } },
+      });
+
+      if (runAtualizada.count !== 1) {
+        throw new Error(
+          `Contador de itens finalizados inconsistente para a run ${runId}`,
+        );
+      }
+
+      return true;
+    });
   }
 }

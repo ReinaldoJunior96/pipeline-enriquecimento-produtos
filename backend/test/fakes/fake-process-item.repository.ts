@@ -8,6 +8,7 @@ import {
 
 export class FakeProcessItemRepository implements ProcessItemRepository {
   readonly itens: ProcessItemInput[] = [];
+  readonly finishedCountPorRun = new Map<string, number>();
   private readonly estados = new Map<string, ProcessItem>();
 
   async registerIfNew(item: ProcessItemInput): Promise<{ created: boolean }> {
@@ -60,6 +61,7 @@ export class FakeProcessItemRepository implements ProcessItemRepository {
       errorCode: null,
       errorMessage: null,
     });
+    this.incrementarFinishedCount(input.runId);
     return true;
   }
 
@@ -74,7 +76,15 @@ export class FakeProcessItemRepository implements ProcessItemRepository {
       errorCode: input.errorCode,
       errorMessage: input.errorMessage,
     });
+    this.incrementarFinishedCount(input.runId);
     return true;
+  }
+
+  private incrementarFinishedCount(runId: string): void {
+    this.finishedCountPorRun.set(
+      runId,
+      (this.finishedCountPorRun.get(runId) ?? 0) + 1,
+    );
   }
 
   private chave(runId: string, seq: number): string {
