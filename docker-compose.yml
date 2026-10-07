@@ -2,6 +2,8 @@ services:
   backend:
     build:
       context: ./backend
+    env_file:
+      - ./backend/.env
     ports:
       - "3000:3000"
     environment:
@@ -11,11 +13,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       BULL_BOARD_ENABLED: "true"
-      ENRICHMENT_MODE: ${ENRICHMENT_MODE:-fake}
-      PLATAFORMA_BASE_URL: ${PLATAFORMA_BASE_URL:-}
-      PLATAFORMA_REGISTER_URL: ${PLATAFORMA_REGISTER_URL:-}
-      PLATFORM_AUTH_TTL_SECONDS: ${PLATFORM_AUTH_TTL_SECONDS:-1800}
-      ADMIN_TEST_ENDPOINTS_ENABLED: ${ADMIN_TEST_ENDPOINTS_ENABLED:-true}
     depends_on:
       postgres:
         condition: service_healthy
