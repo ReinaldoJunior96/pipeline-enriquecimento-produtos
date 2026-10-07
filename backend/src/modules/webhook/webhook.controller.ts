@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiExcludeEndpoint,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -11,6 +12,7 @@ import { CheckWebhookDto } from './dto/check-webhook.dto.js';
 @ApiTags('Plataforma Externa')
 export class WebhookController {
   @Post('check')
+  @ApiExcludeEndpoint()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Confirma o handshake do webhook',

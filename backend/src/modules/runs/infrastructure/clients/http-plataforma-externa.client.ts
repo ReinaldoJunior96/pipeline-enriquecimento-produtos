@@ -62,29 +62,43 @@ export class HttpPlataformaExternaClient implements PlataformaExternaClient {
     }
 
     const runId = resposta.run_id;
-    const cid = resposta.cid;
+    const cid = resposta.cid === undefined ? input.cid : resposta.cid;
     const total = resposta.total;
     const startedAt = resposta.started_at;
     const data =
       typeof startedAt === 'string' ? new Date(startedAt) : new Date(NaN);
+    const camposInvalidos: string[] = [];
 
+    if (!this.textoNaoVazio(runId)) camposInvalidos.push('run_id');
+    if (!this.textoNaoVazio(cid)) camposInvalidos.push('cid');
     if (
-      !this.textoNaoVazio(runId) ||
-      !this.textoNaoVazio(cid) ||
       typeof total !== 'number' ||
       !Number.isInteger(total) ||
-      total < 1 ||
+      total < 1
+    ) {
+      camposInvalidos.push('total');
+    }
+    if (
       typeof startedAt !== 'string' ||
       !isISO8601(startedAt, { strict: true }) ||
       !Number.isFinite(data.getTime())
     ) {
+      camposInvalidos.push('started_at');
+    }
+
+    if (camposInvalidos.length > 0) {
       throw new PlataformaExternaClientError(
-        'Resposta inválida recebida na criação do lote',
+        `Resposta inválida recebida na criação do lote; campos inválidos: ${camposInvalidos.join(', ')}`,
         'RESPOSTA_INVALIDA',
       );
     }
 
-    return { runId, cid, total, startedAt: data };
+    return {
+      runId: runId as string,
+      cid: cid as string,
+      total: total as number,
+      startedAt: data,
+    };
   }
 
   private async enviar(url: string, init: RequestInit): Promise<unknown> {
@@ -98,7 +112,7 @@ export class HttpPlataformaExternaClient implements PlataformaExternaClient {
       );
     }
 
-    if (resposta.status !== 200) {
+    if (!resposta.ok) {
       const tipo =
         resposta.status === 400 || resposta.status === 422
           ? 'VALIDACAO'

@@ -73,6 +73,13 @@ export class RunsController {
         throw new ConflictException('A run retornada já está cadastrada');
       }
       if (error instanceof PlataformaExternaClientError) {
+        this.logger.error({
+          evento: 'burst.falha',
+          cid: body.cid,
+          tipo: error.tipo,
+          statusExterno: error.status,
+          motivo: error.message,
+        });
         if (error.status === 401) {
           throw new UnauthorizedException('Token rejeitado pela plataforma');
         }
