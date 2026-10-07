@@ -44,7 +44,7 @@ describe('EnviarCallbackRunUseCase', () => {
       cid: opcoes.cidAutenticacao ?? run.cid,
       token: 'token-nao-logar',
     };
-    auth.saveForRun({ runId: run.runId, ...credencial });
+    void auth.saveForRun({ runId: run.runId, ...credencial });
     const client = {
       sendCallback: vi.fn(async () => {
         eventos.push('callback.enviado');
@@ -68,7 +68,16 @@ describe('EnviarCallbackRunUseCase', () => {
       client,
     );
 
-    return { useCase, runs, items, auth, authStore, client, consolidar, eventos };
+    return {
+      useCase,
+      runs,
+      items,
+      auth,
+      authStore,
+      client,
+      consolidar,
+      eventos,
+    };
   }
 
   it('deve enviar, marcar COMPLETED e remover auth somente após confirmação', async () => {

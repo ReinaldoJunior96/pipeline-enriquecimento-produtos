@@ -1,5 +1,10 @@
 import { AddressInfo } from 'node:net';
-import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
+import {
+  createServer,
+  IncomingMessage,
+  Server,
+  ServerResponse,
+} from 'node:http';
 import { CallbackOutcomeUnknownError } from '../../../src/modules/callback/domain/errors/callback.errors.js';
 import { HttpCallbackClient } from '../../../src/modules/callback/infrastructure/clients/http-callback.client.js';
 
@@ -20,7 +25,9 @@ describe('Cliente HTTP do callback', () => {
     servidor = createServer((req, res) => {
       void capturarRequisicao(req, res);
     });
-    await new Promise<void>((resolve) => servidor.listen(0, '127.0.0.1', resolve));
+    await new Promise<void>((resolve) =>
+      servidor.listen(0, '127.0.0.1', resolve),
+    );
     baseUrl = `http://127.0.0.1:${(servidor.address() as AddressInfo).port}`;
   });
 
@@ -88,16 +95,19 @@ describe('Cliente HTTP do callback', () => {
     ).resolves.toBeUndefined();
   });
 
-  it.each([400, 401, 500])('deve tratar HTTP %i como falha explícita', async (status) => {
-    statusResposta = status;
+  it.each([400, 401, 500])(
+    'deve tratar HTTP %i como falha explícita',
+    async (status) => {
+      statusResposta = status;
 
-    await expect(
-      new HttpCallbackClient({ baseUrl }).sendCallback({
-        token: 'token-secreto',
-        payload,
-      }),
-    ).rejects.toMatchObject({ status });
-  });
+      await expect(
+        new HttpCallbackClient({ baseUrl }).sendCallback({
+          token: 'token-secreto',
+          payload,
+        }),
+      ).rejects.toMatchObject({ status });
+    },
+  );
 
   it('deve enviar apenas o token no header e o payload documentado no body', async () => {
     await new HttpCallbackClient({ baseUrl }).sendCallback({

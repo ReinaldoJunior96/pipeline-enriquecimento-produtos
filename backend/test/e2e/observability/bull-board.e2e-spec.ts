@@ -33,7 +33,7 @@ describe('Bull Board (e2e)', () => {
     }
   });
 
-  it('deve expor em modo somente leitura a fila processing', async () => {
+  it('deve expor as filas em modo somente leitura', async () => {
     const app = await criarAplicacaoBullBoard(true);
 
     try {
@@ -53,6 +53,10 @@ describe('Bull Board (e2e)', () => {
           }),
           expect.objectContaining({
             name: 'process-ingress',
+            readOnlyMode: true,
+          }),
+          expect.objectContaining({
+            name: 'callback',
             readOnlyMode: true,
           }),
         ]),
