@@ -4,6 +4,7 @@ import { PrismaService } from '../../../../infrastructure/database/prisma.servic
 import {
   MarkProcessItemErrorInput,
   MarkProcessItemSuccessInput,
+  ProcessItemFinalization,
   ProcessItem,
   ProcessItemInput,
   ProcessItemRepository,
@@ -61,7 +62,9 @@ export class PrismaProcessItemRepository implements ProcessItemRepository {
     return resultado.count === 1;
   }
 
-  async markSuccess(input: MarkProcessItemSuccessInput): Promise<boolean> {
+  async markSuccess(
+    input: MarkProcessItemSuccessInput,
+  ): Promise<ProcessItemFinalization | null> {
     return this.finalizarItem(input.runId, input.seq, {
       status: 'SUCCESS',
       price: input.price,
@@ -71,7 +74,9 @@ export class PrismaProcessItemRepository implements ProcessItemRepository {
     });
   }
 
-  async markError(input: MarkProcessItemErrorInput): Promise<boolean> {
+  async markError(
+    input: MarkProcessItemErrorInput,
+  ): Promise<ProcessItemFinalization | null> {
     return this.finalizarItem(input.runId, input.seq, {
       status: 'ERROR',
       price: null,
@@ -85,14 +90,14 @@ export class PrismaProcessItemRepository implements ProcessItemRepository {
     runId: string,
     seq: number,
     data: Prisma.RunItemUpdateManyMutationInput,
-  ): Promise<boolean> {
+  ): Promise<ProcessItemFinalization | null> {
     return this.prisma.$transaction(async (transacao) => {
       const itemAtualizado = await transacao.runItem.updateMany({
         where: { runId, seq, status: 'PROCESSING' },
         data,
       });
 
-      if (itemAtualizado.count === 0) return false;
+      if (itemAtualizado.count === 0) return null;
 
       const run = await transacao.run.findUniqueOrThrow({
         where: { runId },
@@ -110,7 +115,17 @@ export class PrismaProcessItemRepository implements ProcessItemRepository {
         );
       }
 
-      return true;
+      const progresso = await transacao.run.findUniqueOrThrow({
+        where: { runId },
+        select: { finishedCount: true, total: true },
+      });
+
+      return {
+        runId,
+        finishedCount: progresso.finishedCount,
+        total: progresso.total,
+        completed: progresso.finishedCount === progresso.total,
+      };
     });
   }
 }

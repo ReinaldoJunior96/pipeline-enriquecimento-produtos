@@ -2,6 +2,9 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../infrastructure/database/prisma.module.js';
 import { PlatformCredentialsModule } from '../../infrastructure/platform-credentials/platform-credentials.module.js';
+import { CALLBACK_QUEUE } from '../callback/application/contracts/callback.queue.js';
+import { CallbackQueueModule } from '../callback/callback-queue.module.js';
+import { CallbackQueue } from '../callback/application/contracts/callback.queue.js';
 import {
   ENRICHMENT_CLIENT,
   EnrichmentClient,
@@ -41,6 +44,7 @@ import {
   imports: [
     PrismaModule,
     PlatformCredentialsModule,
+    CallbackQueueModule,
     BullModule.registerQueue({ name: PENDING_RUN_QUEUE_NAME }),
   ],
   controllers: [ProcessingController],
@@ -99,11 +103,12 @@ import {
     },
     {
       provide: ProcessarItemUseCase,
-      inject: [PROCESS_ITEM_REPOSITORY, ENRICHMENT_CLIENT],
+      inject: [PROCESS_ITEM_REPOSITORY, ENRICHMENT_CLIENT, CALLBACK_QUEUE],
       useFactory: (
         repositorio: ProcessItemRepository,
         cliente: EnrichmentClient,
-      ) => new ProcessarItemUseCase(repositorio, cliente),
+        callbackQueue: CallbackQueue,
+      ) => new ProcessarItemUseCase(repositorio, cliente, callbackQueue),
     },
     PendingRunWorker,
     ProcessingWorker,

@@ -10,6 +10,7 @@ describe('Processar item', () => {
     const cliente = new FakeEnrichmentClient();
     const callbackQueue = new FakeCallbackQueue();
     const item = { runId: 'run_callback_final', seq: 0, sku: 'sku-final' };
+    repositorio.definirTotalDaRun(item.runId, 1);
     await repositorio.registerIfNew(item);
     cliente.responderCom(item.sku, {
       sku: item.sku,
@@ -36,6 +37,7 @@ describe('Processar item', () => {
     const callbackQueue = new FakeCallbackQueue();
     const sucesso = { runId: 'run_callback_error_item', seq: 0, sku: 'sku-ok' };
     const erro = { runId: 'run_callback_error_item', seq: 1, sku: 'sku-falha' };
+    repositorio.definirTotalDaRun(sucesso.runId, 2);
     await repositorio.registerIfNew(sucesso);
     await repositorio.registerIfNew(erro);
     cliente.responderCom(sucesso.sku, {
@@ -68,7 +70,11 @@ describe('Processar item', () => {
       price: 99.9,
       stock: 12,
     });
-    const processarItem = new ProcessarItemUseCase(repositorio, cliente);
+    const processarItem = new ProcessarItemUseCase(
+      repositorio,
+      cliente,
+      new FakeCallbackQueue(),
+    );
 
     await processarItem.execute(item);
 
@@ -100,7 +106,11 @@ describe('Processar item', () => {
       price: 99.9,
       stock: 12,
     });
-    const processarItem = new ProcessarItemUseCase(repositorio, cliente);
+    const processarItem = new ProcessarItemUseCase(
+      repositorio,
+      cliente,
+      new FakeCallbackQueue(),
+    );
 
     await expect(processarItem.execute(item)).rejects.toThrow(
       'Item com status SUCCESS não pode ser processado',
@@ -120,7 +130,11 @@ describe('Processar item', () => {
       errorCode: 'SKU_NOT_FOUND',
       errorMessage: 'SKU não encontrado para enriquecimento',
     });
-    const processarItem = new ProcessarItemUseCase(repositorio, cliente);
+    const processarItem = new ProcessarItemUseCase(
+      repositorio,
+      cliente,
+      new FakeCallbackQueue(),
+    );
 
     await expect(processarItem.execute(item)).rejects.toThrow(
       'Item com status ERROR não pode ser processado',
@@ -131,7 +145,11 @@ describe('Processar item', () => {
   it('não deve criar nem processar um item inexistente', async () => {
     const repositorio = new FakeProcessItemRepository();
     const cliente = new FakeEnrichmentClient();
-    const processarItem = new ProcessarItemUseCase(repositorio, cliente);
+    const processarItem = new ProcessarItemUseCase(
+      repositorio,
+      cliente,
+      new FakeCallbackQueue(),
+    );
 
     await expect(
       processarItem.execute({

@@ -29,12 +29,23 @@ export interface MarkProcessItemErrorInput {
   errorMessage: string;
 }
 
+export interface ProcessItemFinalization {
+  runId: string;
+  finishedCount: number;
+  total: number;
+  completed: boolean;
+}
+
 export interface ProcessItemRepository {
   registerIfNew(item: ProcessItemInput): Promise<{ created: boolean }>;
   findByRunIdAndSeq(runId: string, seq: number): Promise<ProcessItem | null>;
   markProcessing(runId: string, seq: number): Promise<boolean>;
-  markSuccess(input: MarkProcessItemSuccessInput): Promise<boolean>;
-  markError(input: MarkProcessItemErrorInput): Promise<boolean>;
+  markSuccess(
+    input: MarkProcessItemSuccessInput,
+  ): Promise<ProcessItemFinalization | null>;
+  markError(
+    input: MarkProcessItemErrorInput,
+  ): Promise<ProcessItemFinalization | null>;
 }
 
 export const PROCESS_ITEM_REPOSITORY = Symbol('PROCESS_ITEM_REPOSITORY');

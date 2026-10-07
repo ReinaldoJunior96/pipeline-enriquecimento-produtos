@@ -70,7 +70,7 @@ describe('Progresso dos itens finalizados no PostgreSQL', () => {
 
     await expect(
       repositorio.markSuccess({ runId, seq: 0, price: 10.5, stock: 3 }),
-    ).resolves.toBe(false);
+    ).resolves.toBeNull();
     await expect(obterFinishedCount()).resolves.toBe(1);
   });
 
@@ -84,7 +84,7 @@ describe('Progresso dos itens finalizados no PostgreSQL', () => {
     };
     await repositorio.markError(erro);
 
-    await expect(repositorio.markError(erro)).resolves.toBe(false);
+    await expect(repositorio.markError(erro)).resolves.toBeNull();
     await expect(obterFinishedCount()).resolves.toBe(1);
   });
 

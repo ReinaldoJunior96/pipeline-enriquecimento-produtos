@@ -7,8 +7,10 @@ import {
 } from '../../domain/errors/enrichment.errors.js';
 import {
   ProcessItemInput,
+  ProcessItemFinalization,
   ProcessItemRepository,
 } from '../../domain/repositories/process-item.repository.js';
+import { CallbackQueue } from '../../../callback/application/contracts/callback.queue.js';
 
 export class ProcessarItemUseCase {
   private readonly logger = new Logger(ProcessarItemUseCase.name);
@@ -16,6 +18,7 @@ export class ProcessarItemUseCase {
   constructor(
     private readonly repositorio: ProcessItemRepository,
     private readonly cliente: EnrichmentClient,
+    private readonly callbackQueue: CallbackQueue,
   ) {}
 
   async execute(input: ProcessItemInput): Promise<void> {
@@ -50,16 +53,17 @@ export class ProcessarItemUseCase {
         sku: input.sku,
         runId: input.runId,
       });
-      const concluiu = await this.repositorio.markSuccess({
+      const finalizacao = await this.repositorio.markSuccess({
         runId: input.runId,
         seq: input.seq,
         price: resultado.price,
         stock: resultado.stock,
       });
 
-      if (!concluiu) {
+      if (!finalizacao) {
         throw new Error('Não foi possível concluir o processamento do item');
       }
+      await this.agendarCallbackSeNecessario(finalizacao);
       this.logger.log({
         evento: 'enriquecimento.finalizado',
         status: 'SUCCESS',
@@ -70,12 +74,16 @@ export class ProcessarItemUseCase {
         error instanceof EnrichmentUnauthorizedError ||
         error instanceof EnrichmentNotFoundError
       ) {
-        await this.repositorio.markError({
+        const finalizacao = await this.repositorio.markError({
           runId: input.runId,
           seq: input.seq,
           errorCode: error.code,
           errorMessage: error.message,
         });
+        if (!finalizacao) {
+          throw new Error('Não foi possível concluir o processamento do item');
+        }
+        await this.agendarCallbackSeNecessario(finalizacao);
         this.logger.warn({
           evento: 'enriquecimento.finalizado',
           status: 'ERROR',
@@ -96,16 +104,18 @@ export class ProcessarItemUseCase {
   }
 
   async marcarTentativasEsgotadas(input: ProcessItemInput): Promise<void> {
-    const marcou = await this.repositorio.markError({
+    const finalizacao = await this.repositorio.markError({
       runId: input.runId,
       seq: input.seq,
       errorCode: 'RETRY_EXHAUSTED',
       errorMessage: 'Tentativas de enriquecimento esgotadas',
     });
 
-    if (!marcou) {
+    if (!finalizacao) {
       throw new Error('Não foi possível marcar as tentativas como esgotadas');
     }
+
+    await this.agendarCallbackSeNecessario(finalizacao);
 
     this.logger.error({
       evento: 'enriquecimento.finalizado',
@@ -114,6 +124,27 @@ export class ProcessarItemUseCase {
       runId: input.runId,
       seq: input.seq,
       sku: input.sku,
+    });
+  }
+
+  private async agendarCallbackSeNecessario(
+    finalizacao: ProcessItemFinalization,
+  ): Promise<void> {
+    this.logger.log({
+      evento: 'run.progresso_atualizado',
+      runId: finalizacao.runId,
+      finishedCount: finalizacao.finishedCount,
+      total: finalizacao.total,
+    });
+
+    if (!finalizacao.completed) return;
+
+    await this.callbackQueue.enqueue(finalizacao.runId);
+    this.logger.log({
+      evento: 'callback.agendado',
+      runId: finalizacao.runId,
+      finishedCount: finalizacao.finishedCount,
+      total: finalizacao.total,
     });
   }
 }

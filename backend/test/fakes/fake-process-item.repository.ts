@@ -1,6 +1,7 @@
 import {
   MarkProcessItemErrorInput,
   MarkProcessItemSuccessInput,
+  ProcessItemFinalization,
   ProcessItem,
   ProcessItemInput,
   ProcessItemRepository,
@@ -9,6 +10,7 @@ import {
 export class FakeProcessItemRepository implements ProcessItemRepository {
   readonly itens: ProcessItemInput[] = [];
   readonly finishedCountPorRun = new Map<string, number>();
+  readonly totalPorRun = new Map<string, number>();
   private readonly estados = new Map<string, ProcessItem>();
 
   async registerIfNew(item: ProcessItemInput): Promise<{ created: boolean }> {
@@ -50,9 +52,11 @@ export class FakeProcessItemRepository implements ProcessItemRepository {
     return true;
   }
 
-  async markSuccess(input: MarkProcessItemSuccessInput): Promise<boolean> {
+  async markSuccess(
+    input: MarkProcessItemSuccessInput,
+  ): Promise<ProcessItemFinalization | null> {
     const item = this.estados.get(this.chave(input.runId, input.seq));
-    if (!item || item.status !== 'PROCESSING') return false;
+    if (!item || item.status !== 'PROCESSING') return null;
 
     Object.assign(item, {
       status: 'SUCCESS',
@@ -61,13 +65,14 @@ export class FakeProcessItemRepository implements ProcessItemRepository {
       errorCode: null,
       errorMessage: null,
     });
-    this.incrementarFinishedCount(input.runId);
-    return true;
+    return this.incrementarFinishedCount(input.runId);
   }
 
-  async markError(input: MarkProcessItemErrorInput): Promise<boolean> {
+  async markError(
+    input: MarkProcessItemErrorInput,
+  ): Promise<ProcessItemFinalization | null> {
     const item = this.estados.get(this.chave(input.runId, input.seq));
-    if (!item || item.status !== 'PROCESSING') return false;
+    if (!item || item.status !== 'PROCESSING') return null;
 
     Object.assign(item, {
       status: 'ERROR',
@@ -76,15 +81,23 @@ export class FakeProcessItemRepository implements ProcessItemRepository {
       errorCode: input.errorCode,
       errorMessage: input.errorMessage,
     });
-    this.incrementarFinishedCount(input.runId);
-    return true;
+    return this.incrementarFinishedCount(input.runId);
   }
 
-  private incrementarFinishedCount(runId: string): void {
-    this.finishedCountPorRun.set(
+  definirTotalDaRun(runId: string, total: number): void {
+    this.totalPorRun.set(runId, total);
+  }
+
+  private incrementarFinishedCount(runId: string): ProcessItemFinalization {
+    const finishedCount = (this.finishedCountPorRun.get(runId) ?? 0) + 1;
+    const total = this.totalPorRun.get(runId) ?? Number.MAX_SAFE_INTEGER;
+    this.finishedCountPorRun.set(runId, finishedCount);
+    return {
       runId,
-      (this.finishedCountPorRun.get(runId) ?? 0) + 1,
-    );
+      finishedCount,
+      total,
+      completed: finishedCount === total,
+    };
   }
 
   private chave(runId: string, seq: number): string {
