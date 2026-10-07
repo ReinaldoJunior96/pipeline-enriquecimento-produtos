@@ -1,328 +1,67 @@
 # Processamento assíncrono
 
-Após a criação do lote, a plataforma externa começa a disparar as mensagens de processamento para o endpoint:
-
-```http
-POST /process
-```
-
-Cada mensagem representa um item do lote e possui um payload semelhante a:
+A plataforma entrega cada SKU em `POST /process`:
 
 ```json
-{
-  "run_id": "run_abc123",
-  "seq": 0,
-  "sku": "sku-001"
-}
+{ "run_id": "run_abc123", "seq": 0, "sku": "sku-001" }
 ```
 
-O `run_id` identifica o lote ao qual o item pertence, enquanto a combinação `run_id + seq` identifica de forma única cada mensagem dentro da execução.
+`run_id + seq` é a chave idempotente. O item é persistido em PostgreSQL e enviado à fila BullMQ; o endpoint retorna `202 accepted` sem esperar o enrich. O SLA esperado para ACK é até 600 ms. A evidência local de 100 chamadas está em [melhor execução local](./melhor-execucao.md) e não representa medição de produção.
 
-## Objetivo do `/process`
+## Run ainda não persistida
 
-O endpoint `/process` foi desenhado para executar apenas operações rápidas:
+O burst externo pode começar a entregar itens antes de a run ser persistida localmente. Nesse intervalo, `process-ingress` mantém a mensagem sem criar item órfão. O worker `wait-for-run` tenta localizar a run por até 10 tentativas, com backoff fixo de 500 ms. Quando ela aparece, o item é registrado e segue para `processing`; ao esgotar, registra o evento `process.espera_esgotada`.
 
-1. validar o payload;
-2. verificar duplicidade através de `run_id + seq`;
-3. registrar e enfileirar o job;
-4. responder o ACK rapidamente.
+## Idempotência e recuperação do enqueue
 
-O processamento pesado não deve acontecer dentro da requisição HTTP.
+O banco mantém `UNIQUE (run_id, seq)` e a chave estrangeira para `runs`. Jobs da fila `processing` usam `jobId = <runId>-<seq>`.
 
-A resposta deverá ocorrer dentro do SLA de até `600 ms`.
+- item novo: persistir como `PENDING` e enfileirar;
+- duplicata `PENDING`: tentar enfileirar novamente com o mesmo ID determinístico, recuperando o caso de persistência bem-sucedida seguida de falha do enqueue;
+- duplicata `PROCESSING`: não criar outro job;
+- duplicata `SUCCESS` ou `ERROR`: ACK e no-op.
 
-## Recebimento antes da persistência do lote
+Se o primeiro enqueue falhar, `/process` retorna erro e deixa o item `PENDING`; a plataforma pode repetir a entrega e o backend tenta garantir o job novamente. A restrição única impede duplicação do item e o ID determinístico torna repetido o enqueue seguro no BullMQ.
 
-A plataforma pode iniciar a entrega dos itens imediatamente após a criação do burst. Como a resposta do `/burst` e a entrega via `/process` são independentes, existe uma janela em que itens podem chegar antes da persistência local da run.
+## Filas e concorrência
 
-Quando isso acontece, `/process` consulta a existência do lote antes de gravar o item. Se a run ainda não existir, a requisição coloca o payload na fila BullMQ `process-ingress` e responde `202` sem tentar criar `run_items`. O worker `wait-for-run` consulta a run novamente com tentativas curtas. Quando ela aparece, o item é registrado e segue para a fila normal `processing`.
+As filas são:
 
-A espera usa até 10 tentativas, com backoff fixo de 500 ms, cobrindo aproximadamente cinco segundos. Se a run não aparecer dentro dessa janela, o job termina como `failed` e gera o evento `process.espera_esgotada` para diagnóstico. Nenhum registro órfão é criado e a chave estrangeira entre `run_items.run_id` e `runs.run_id` continua ativa.
+- `process-ingress`: itens cuja run ainda não está visível no banco;
+- `processing`: enrich e persistência de cada item;
+- `callback`: consolidação e envio do resultado final.
 
-A fila de espera usa o identificador `wait-<run_id>-<seq>` para que entregas repetidas do mesmo item não criem vários jobs enquanto a primeira espera estiver ativa.
+O worker de `processing` tem concorrência 3 por processo. Isso atende o cenário atual de uma instância; não é limite global. Com várias réplicas, o total poderá ser três por réplica e será necessário um limitador distribuído para respeitar o downstream.
 
-Os eventos `process.run_ausente`, `process.aguardando_run`, `process.run_disponivel`, `process.reprocessado` e `process.espera_esgotada` incluem `runId`, `seq`, `sku` e a tentativa quando aplicável. Tokens e headers não são registrados.
+## Enriquecimento e retries
 
-Exemplo:
+O worker chama `GET /enrich/:sku`, enviando `x-cid` e `x-token` recuperados do Redis por `runId`. O token não vai no payload BullMQ, banco ou logs.
 
-```http
-HTTP 200
-```
+HTTP 429 respeita `Retry-After`; falhas HTTP transitórias e erros de transporte (timeout, DNS, socket/conexão interrompida) são repetidos com backoff. Falhas de transporte recebem `NETWORK_ERROR` sem propagar a mensagem bruta da exceção. HTTP 401 e 404 são definitivos. Após três tentativas transitórias, o item termina em `ERROR` com `RETRY_EXHAUSTED`, incrementa `finished_count` uma vez e o pipeline pode continuar.
 
-ou:
+## Progresso, consolidação e callback
 
-```http
-HTTP 202
-```
+Uma transação finaliza cada item e incrementa `runs.finished_count` somente uma vez. Quando `finished_count == total`, é criado um job determinístico `callback-<runId>` na fila `callback`.
 
-Com um payload semelhante a:
+O agendamento é reentrante: se o enqueue falhar depois de o item se tornar terminal, o retry do job de processamento encontra o item terminal e tenta garantir novamente o callback. Se o callback já foi confirmado (`callback_sent=true`), não agenda outro. O callback só marca essa flag após resposta externa 2xx; falhas ambíguas não são repetidas cegamente.
 
-```json
-{
-  "status": "accepted"
-}
-```
-
-## Idempotência
-
-A entrega das mensagens é `at-least-once`, portanto mensagens duplicadas podem ocorrer.
-
-Para evitar processamento duplicado, a combinação:
-
-```text
-run_id + seq
-```
-
-será utilizada como chave de idempotência.
-
-A persistência dos itens utilizará uma restrição equivalente a:
-
-```text
-UNIQUE (run_id, seq)
-```
-
-Dessa forma, uma mensagem duplicada pode ser identificada antes de iniciar uma nova chamada ao serviço de enriquecimento.
-
-## Fila de jobs
-
-Após a validação, o item é encaminhado para uma fila de processamento assíncrono.
-
-Cada job pode carregar informações como:
-
-```text
-run_id
-seq
-sku
-tentativas
-status
-```
-
-A fila desacopla o recebimento do processamento e permite que o endpoint `/process` responda rapidamente sem aguardar a chamada ao serviço externo de enriquecimento.
-
-## Workers
-
-Os workers são responsáveis por consumir os jobs da fila.
-
-Suas principais responsabilidades são:
-
-1. consumir o job;
-2. chamar o serviço externo de enriquecimento;
-3. tratar retries e rate limit;
-4. persistir o resultado;
-5. atualizar o progresso do lote.
-
-## Controle de concorrência
-
-O serviço externo de enriquecimento permite no máximo três requisições simultâneas.
-
-Por isso, o processamento deverá utilizar um limitador global de concorrência:
-
-```text
-máximo de 3 chamadas para /enrich/:sku
-```
-
-Esse limite deve ser respeitado independentemente da quantidade de workers existentes.
-
-Aumentar a quantidade de workers pode melhorar outras etapas do pipeline, mas não deve aumentar a quantidade total de chamadas simultâneas ao `/enrich/:sku`.
-
-## Enriquecimento
-
-Cada worker consulta:
-
-```http
-GET /enrich/:sku
-```
-
-Com os headers:
-
-```http
-x-cid: <cid>
-x-token: <token>
-```
-
-Resposta de sucesso:
-
-```json
-{
-  "sku": "sku-001",
-  "price": 149.9,
-  "stock": 42
-}
-```
-
-## Tratamento de falhas
-
-O serviço de enriquecimento pode retornar falhas transitórias.
-
-### HTTP 429
-
-Quando o limite de concorrência for excedido:
-
-```text
-HTTP 429
-→ respeitar Retry-After
-→ reprocessar o job
-```
-
-### HTTP 500
-
-Para falhas transitórias:
-
-```text
-HTTP 500
-→ retry com backoff
-→ reprocessar o job
-```
-
-Após o limite de tentativas, o item será registrado internamente com:
-
-```text
-status = error
-```
-
-Também poderão ser armazenados:
-
-```text
-error_code
-error_message
-attempts
-```
-
-O erro de um item não interrompe o processamento dos demais itens do lote.
-
-## Persistência dos itens
-
-Os resultados processados serão armazenados na tabela:
-
-```text
-run_items
-```
-
-Estrutura proposta:
-
-```text
-run_items
-
-run_id
-seq
-sku
-price
-stock
-status
-attempts
-error_code
-error_message
-created_at
-updated_at
-```
-
-Com a restrição:
-
-```text
-UNIQUE (run_id, seq)
-```
-
-O `run_id` relaciona cada item ao lote correspondente armazenado na tabela `runs`.
-
-O relacionamento lógico é:
-
-```text
-runs.run_id
-    1
-    |
-    |---- N
-            run_items.run_id
-```
-
-## Progresso do lote
-
-Após a finalização de cada item, o progresso do lote será atualizado.
-
-A tabela `runs` mantém o controle macro da execução, incluindo:
-
-```text
-total
-finished_count
-status
-callback_sent
-```
-
-Cada item finalizado pela primeira vez contribui para o avanço de:
-
-```text
-finished_count
-```
-
-Quando:
-
-```text
-finished_count == total
-```
-
-todos os itens únicos do lote foram finalizados.
-
-Nesse momento, o lote pode seguir para consolidação.
-
-## Consolidação
-
-Após a conclusão do lote, os resultados associados ao `run_id` são recuperados da tabela `run_items`.
-
-Os dados válidos são consolidados no formato esperado pela plataforma externa:
-
-```json
-{
-  "cid": "...",
-  "run_id": "run_abc123",
-  "result": [
-    {
-      "seq": 0,
-      "sku": "sku-001",
-      "price": 149.9,
-      "stock": 42
-    }
-  ]
-}
-```
-
-## Callback final
-
-O resultado consolidado será enviado para:
-
-```http
-POST /callback
-x-token: <token>
-```
-
-Após o envio bem-sucedido do callback, o lote poderá ser atualizado na tabela `runs`:
-
-```text
-status = COMPLETED
-callback_sent = true
-```
-
-Também poderá ser registrado o momento de finalização da execução.
-
-## Decisões arquiteturais
-
-As principais decisões consideradas nesse fluxo são:
-
-- desacoplamento entre recebimento e processamento;
-- ACK rápido no `/process`;
-- processamento assíncrono;
-- idempotência por `run_id + seq`;
-- persistência do estado dos itens;
-- relacionamento entre `runs` e `run_items`;
-- limite global de concorrência;
-- retries controlados para falhas transitórias;
-- rastreabilidade de erros;
-- consolidação somente após a finalização do lote.
-
-
-
-## Diagrama
+O worker consolida os itens terminais em ordem de `seq` e envia `POST /callback` com `x-token`. Após confirmação externa, marca a run como `COMPLETED`, `callback_sent=true` e remove do Redis as credenciais efêmeras da run.
 
 ![Arquitetura de processamento](../Arquitetura-processamento-produtos.jpg)
 
-## Etapa anterior
+## E se o lote tivesse 20.000 SKUs?
 
-[Criação do lote](./criacao-lote.md)
+Não é uma escala implementada ou validada aqui. A estratégia seria:
+
+- manter ACK rápido, persistência idempotente, processamento assíncrono e backpressure pela fila;
+- escalar workers horizontalmente apenas junto de limiter global, métricas de lag, retries controlados e DLQ; mais workers não elevam indefinidamente a capacidade do downstream;
+- manter `finished_count` incremental e índices por run/status; paginar ou processar em batches na consolidação, sem carregar 20.000 itens desnecessariamente em memória;
+- validar o limite de tamanho do callback único da plataforma; usar streaming/batching interno se necessário, sem inventar callbacks em chunks sem suporte contratual;
+- dimensionar o TTL da autenticação Redis para a duração maior da execução;
+- considerar múltiplas réplicas, Postgres/Redis gerenciados e shutdown gracioso.
+
+## Etapas relacionadas
+
+- [Criação do lote](./criacao-lote.md)
+- [Teste real pelo Swagger](./teste-real-manual.md)
+- [Observabilidade das filas](./observabilidade-filas.md)

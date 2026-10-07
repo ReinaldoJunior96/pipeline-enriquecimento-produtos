@@ -1,61 +1,56 @@
 # Pipeline de Enriquecimento de Produtos
 
-Serviço backend para processamento assíncrono de lotes de SKUs, com idempotência, controle de concorrência, retries, persistência e consolidação de resultados.
+Backend NestJS que recebe lotes de SKUs, confirma o recebimento rapidamente, enriquece os itens de forma assíncrona e envia o resultado consolidado à plataforma externa.
 
 ## Arquitetura
 
-A solução foi dividida em três fluxos principais:
+- NestJS + TypeScript;
+- PostgreSQL/Prisma como fonte da verdade de runs e itens;
+- Redis/BullMQ para filas `process-ingress`, `processing` e `callback`;
+- workers com concorrência 3 por processo;
+- Swagger/OpenAPI para o fluxo operacional e Bull Board local para observabilidade.
 
-- [1. Autenticação e registro do webhook](/docs/autenticacao.md)
-- [2. Criação do lote](/docs/criacao-lote.md)
-- [3. Processamento assíncrono](/docs/processamento.md)
+O limite de três chamadas simultâneas a `/enrich` é por processo. Com várias réplicas, seria necessário um limitador distribuído para manter um limite global. A escolha do BullMQ mantém o processamento assíncrono, retries e backoff usando o Redis já presente na arquitetura; Kafka ou RabbitMQ não são necessários para o escopo atual.
 
-## Visão geral
+## Executar localmente
 
-O fluxo completo considera:
+1. Configure `backend/.env` a partir de [`backend/.env.example`](backend/.env.example). Preencha `DATABASE_URL`, `ENRICHMENT_MODE=http`, `PLATAFORMA_REGISTER_URL` e `PLATAFORMA_BASE_URL`.
+2. Suba os serviços: `docker compose up -d --build`.
+3. Inicie `ngrok http 3000` para expor o webhook durante o registro. A URL atual do ngrok é informada no corpo de `POST /platform/register` pelo Swagger, não precisa ficar no `.env`.
+4. Acesse [Swagger](http://localhost:3000/docs), registre o webhook informando nome e URL pública, copie `cid` e `token` e envie-os em `POST /runs/burst`.
+5. A plataforma entrega os itens em `/process`; o pipeline processa, consolida e envia o callback automaticamente.
 
-- entrega `at-least-once`;
-- mensagens duplicadas;
-- ordem não garantida;
-- ACK rápido;
-- limite de 3 chamadas simultâneas ao `/enrich`;
-- retries para falhas transitórias;
-- persistência e acompanhamento do lote;
-- callback ao final do processamento.
+O Compose lê somente `backend/.env`. Os endereços de PostgreSQL e Redis são ajustados para os nomes dos serviços dentro da rede Docker. O CID/token retornados pelo registro não ficam no `.env`: o operador os envia no burst e a aplicação os mantém temporariamente no Redis associados à run. Depois de callback confirmado, a autenticação efêmera é removida.
 
-## Status
+O Swagger está em `/docs` e o Bull Board local em `/admin/queues`. Não exponha o Bull Board nem os endpoints administrativos pelo ngrok.
 
-Arquitetura definida. Implementação em andamento.
+## Testes e qualidade
 
+Execute em `backend/`:
 
-
-=====================
-### Validação da integração
-
-O fluxo de registro do webhook foi validado contra a API externa real.
-
-A chamada `POST /register` foi iniciada via `curl`, utilizando a URL pública do backend exposta por ngrok.
-
-Durante o registro, a plataforma externa executou o handshake no endpoint `POST /check` e, após a validação, retornou com sucesso um `cid` e um `token`.
-
-Isso confirmou o funcionamento do fluxo:
-
-`/register → /check → cid + token`
-
-
-
+```bash
 npm test
-unitários e contratos
-
 npm run test:e2e
-endpoints HTTP
-
 npm run test:integracao:banco
-PostgreSQL
-
 npm run test:integracao:autenticacao
-plataforma externa
+npm run benchmark:ack
+npm run build
+npm run lint
+npx prettier --check "src/**/*.ts" "test/**/*.ts"
+```
 
-### Limite de concorrência
+As suítes de integração que usam filas Redis compartilhadas devem ser executadas somente com Redis de teste isolado; algumas removem jobs da fila ao preparar e limpar o cenário. O benchmark é local e usa app, filas e repositórios fake: não mede produção.
 
-O limite atual de três chamadas simultâneas é aplicado por processo do worker. Em um cenário horizontal, cada réplica poderia executar até três chamadas ao mesmo tempo; portanto, seria necessário um limitador distribuído/global para garantir o limite externo entre todas as réplicas. Esta implementação atende ao cenário local com uma única instância.
+## Documentação
+
+- [Autenticação e registro](docs/autenticacao.md)
+- [Criação do lote](docs/criacao-lote.md)
+- [Processamento](docs/processamento.md)
+- [Teste real pelo Swagger](docs/teste-real-manual.md)
+- [Observabilidade das filas](docs/observabilidade-filas.md)
+- [Trade-offs da autenticação efêmera](docs/tradeoffs-autenticacao-efemera.md)
+- [Evidência da melhor execução local](docs/melhor-execucao.md)
+
+## Escala para lotes maiores
+
+Para 20.000 SKUs, manter ACK rápido, persistência/idempotência e processamento assíncrono. Escalar workers exige backpressure e limiter global compatível com o limite do downstream; medir lag e retries, consolidar com paginação/batching, evitar carregar o lote inteiro em memória e validar o tamanho máximo do callback. O TTL das credenciais deve cobrir a duração esperada. Essa estratégia está detalhada em [processamento](docs/processamento.md#e-se-o-lote-tivesse-20000-skus); não representa implementação de escala adicional.

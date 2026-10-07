@@ -162,7 +162,7 @@ A partir desse momento, o processamento passa a ser responsabilidade do fluxo as
 
 ## Atualização do lote
 
-À medida que os itens são processados, o registro correspondente em `runs` será atualizado.
+À medida que os itens são processados, o registro correspondente em `runs` é atualizado.
 
 Por exemplo:
 
@@ -179,7 +179,7 @@ finished_count == total
 
 o lote estará pronto para consolidação e envio do resultado final.
 
-Após o envio bem-sucedido do `/callback`, o lote poderá ser atualizado para:
+Após a confirmação do `/callback`, o lote é atualizado para:
 
 ```text
 status = COMPLETED
