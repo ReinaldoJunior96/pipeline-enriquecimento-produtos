@@ -43,6 +43,12 @@ export class FakeProcessItemRepository implements ProcessItemRepository {
     return this.estados.get(this.chave(runId, seq)) ?? null;
   }
 
+  async findAllByRunId(runId: string): Promise<ProcessItem[]> {
+    return [...this.estados.values()]
+      .filter((item) => item.runId === runId)
+      .sort((a, b) => a.seq - b.seq);
+  }
+
   async markProcessing(runId: string, seq: number): Promise<boolean> {
     const item = this.estados.get(this.chave(runId, seq));
     if (!item || !['PENDING', 'PROCESSING'].includes(item.status)) return false;

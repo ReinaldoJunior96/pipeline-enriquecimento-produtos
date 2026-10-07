@@ -53,6 +53,25 @@ export class PrismaProcessItemRepository implements ProcessItemRepository {
     };
   }
 
+  async findAllByRunId(runId: string): Promise<ProcessItem[]> {
+    const itens = await this.prisma.runItem.findMany({
+      where: { runId },
+      orderBy: { seq: 'asc' },
+    });
+
+    return itens.map((item) => ({
+      runId: item.runId,
+      seq: item.seq,
+      sku: item.sku,
+      status: item.status,
+      attempts: item.attempts,
+      price: item.price?.toNumber() ?? null,
+      stock: item.stock,
+      errorCode: item.errorCode,
+      errorMessage: item.errorMessage,
+    }));
+  }
+
   async markProcessing(runId: string, seq: number): Promise<boolean> {
     const resultado = await this.prisma.runItem.updateMany({
       where: { runId, seq, status: { in: ['PENDING', 'PROCESSING'] } },

@@ -39,6 +39,7 @@ export interface ProcessItemFinalization {
 export interface ProcessItemRepository {
   registerIfNew(item: ProcessItemInput): Promise<{ created: boolean }>;
   findByRunIdAndSeq(runId: string, seq: number): Promise<ProcessItem | null>;
+  findAllByRunId(runId: string): Promise<ProcessItem[]>;
   markProcessing(runId: string, seq: number): Promise<boolean>;
   markSuccess(
     input: MarkProcessItemSuccessInput,

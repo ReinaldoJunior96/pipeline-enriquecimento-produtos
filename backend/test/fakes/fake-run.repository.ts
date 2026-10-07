@@ -12,6 +12,10 @@ export class FakeRunRepository implements RunRepository {
     return this.runs.some((run) => run.runId === runId);
   }
 
+  async findById(runId: string): Promise<Run | null> {
+    return this.runs.find((run) => run.runId === runId) ?? null;
+  }
+
   async create(input: CreateRunInput): Promise<Run> {
     if (this.runs.some(({ runId }) => runId === input.runId)) {
       throw new RunAlreadyExistsError(input.runId);

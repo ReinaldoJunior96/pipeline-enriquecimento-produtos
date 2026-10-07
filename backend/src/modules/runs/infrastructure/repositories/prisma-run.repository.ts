@@ -21,6 +21,10 @@ export class PrismaRunRepository implements RunRepository {
     return run !== null;
   }
 
+  async findById(runId: string): Promise<Run | null> {
+    return this.prisma.run.findUnique({ where: { runId } });
+  }
+
   async create(input: CreateRunInput): Promise<Run> {
     try {
       return await this.prisma.run.create({ data: input });
