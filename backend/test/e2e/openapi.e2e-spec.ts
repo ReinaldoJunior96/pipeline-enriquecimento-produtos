@@ -37,4 +37,20 @@ describe('Documentação OpenAPI (e2e)', () => {
       ]),
     );
   });
+
+  it('deve documentar o health com a tag Health', async () => {
+    const documento = await request(app.getHttpServer())
+      .get('/docs-json')
+      .expect(200);
+
+    expect(documento.body.paths['/health'].get).toEqual(
+      expect.objectContaining({
+        tags: ['Health'],
+        summary: 'Verifica a saúde da aplicação',
+        responses: expect.objectContaining({
+          '200': expect.any(Object),
+        }),
+      }),
+    );
+  });
 });
