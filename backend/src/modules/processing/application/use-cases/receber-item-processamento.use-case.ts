@@ -50,6 +50,15 @@ export class ReceberItemProcessamentoUseCase {
     const { created } = await this.repositorio.registerIfNew(item);
 
     if (!created) {
+      const existente = await this.repositorio.findByRunIdAndSeq(
+        item.runId,
+        item.seq,
+      );
+
+      if (existente?.status === 'PENDING') {
+        await this.fila.enqueue(item);
+      }
+
       return { status: 'accepted' };
     }
 

@@ -60,7 +60,7 @@ describe('Receber item para processamento', () => {
     expect(filaDeEspera.itens).toEqual([item]);
   });
 
-  it('deve manter a idempotência quando o lote existe e o item é duplicado', async () => {
+  it('deve reenfileirar item PENDING quando o lote existe e o item é duplicado', async () => {
     const { repositorio, fila, filaDeEspera, receberItem } =
       await criarCenario(true);
 
@@ -69,17 +69,8 @@ describe('Receber item para processamento', () => {
 
     expect(resultado).toEqual({ status: 'accepted' });
     expect(repositorio.itens).toEqual([item]);
-    expect(fila.itens).toEqual([item]);
-    expect(filaDeEspera.itens).toHaveLength(0);
-  });
-
-  it('deve reenfileirar um item PENDING quando a entrega duplicada chega', async () => {
-    const { fila, receberItem } = await criarCenario(true);
-
-    await receberItem.execute(item);
-    await receberItem.execute(item);
-
     expect(fila.itens).toEqual([item, item]);
+    expect(filaDeEspera.itens).toHaveLength(0);
   });
 
   it('deve deixar o item PENDING quando o enqueue falha e recuperá-lo na repetição', async () => {
