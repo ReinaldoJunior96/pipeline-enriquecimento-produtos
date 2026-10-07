@@ -18,7 +18,7 @@ describe('Idempotência do processamento (e2e)', () => {
     await app.close();
   });
 
-  it('deve aceitar requisições repetidas sem registrar ou enfileirar novamente', async () => {
+  it('deve aceitar requisições repetidas sem duplicar o item e garantir o enqueue PENDING', async () => {
     const item = {
       run_id: 'run_abc123',
       seq: 0,
@@ -38,6 +38,6 @@ describe('Idempotência do processamento (e2e)', () => {
       .expect({ status: 'accepted' });
 
     expect(repositorio.itens).toHaveLength(1);
-    expect(fila.itens).toHaveLength(1);
+    expect(fila.itens).toHaveLength(2);
   });
 });
