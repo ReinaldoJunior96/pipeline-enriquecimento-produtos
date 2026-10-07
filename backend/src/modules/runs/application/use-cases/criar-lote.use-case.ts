@@ -18,7 +18,7 @@ export class CriarLoteUseCase {
 
     return this.runRepository.create({
       runId: loteExterno.runId,
-      cid: input.cid,
+      cid: loteExterno.cid,
       total: loteExterno.total,
       startedAt: loteExterno.startedAt,
     });
