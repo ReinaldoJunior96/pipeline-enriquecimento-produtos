@@ -1,6 +1,7 @@
 import { FakeProcessItemRepository } from '../../../../../test/fakes/fake-process-item.repository.js';
 import { FakeProcessingQueue } from '../../../../../test/fakes/fake-processing.queue.js';
 import { FakeRunRepository } from '../../../../../test/fakes/fake-run.repository.js';
+import { Logger } from '@nestjs/common';
 import { RunNotAvailableError } from '../../domain/errors/run-not-available.error.js';
 import { ProcessarItemAguardandoRunUseCase } from './processar-item-aguardando-run.use-case.js';
 
@@ -44,6 +45,29 @@ describe('Processar item aguardando lote', () => {
     );
     expect(itens.itens).toHaveLength(0);
     expect(fila.itens).toHaveLength(0);
+  });
+
+  it('deve registrar a tentativa quando o lote ainda não estiver disponível', async () => {
+    const lotes = new FakeRunRepository();
+    const casoDeUso = new ProcessarItemAguardandoRunUseCase(
+      lotes,
+      new FakeProcessItemRepository(),
+      new FakeProcessingQueue(),
+    );
+    const avisar = vi
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+
+    await expect(casoDeUso.execute(item, 4)).rejects.toBeInstanceOf(
+      RunNotAvailableError,
+    );
+
+    expect(avisar).toHaveBeenCalledWith({
+      evento: 'process.run_ausente',
+      ...item,
+      tentativa: 4,
+    });
+    avisar.mockRestore();
   });
 
   it('deve continuar idempotente quando o item já tiver sido registrado', async () => {
