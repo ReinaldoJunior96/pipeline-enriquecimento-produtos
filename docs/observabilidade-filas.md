@@ -6,9 +6,9 @@ O painel mostra as filas BullMQ `process-ingress`, `processing` e `callback`, j�
 
 ## Segurança
 
-A rota é destinada exclusivamente ao ambiente local e de desenvolvimento. Ela não deve ser exposta publicamente em produção sem autenticação e autorização.
+A rota é destinada ao ambiente local e de desenvolvimento. Não a exponha publicamente em produção sem autenticação e autorização.
 
-Não há credenciais do Redis ou de outros serviços no código do painel. Os detalhes da conexão Redis também ficam ocultos na interface.
+Os detalhes da conexão Redis ficam ocultos na interface. O token não é incluído nos payloads BullMQ.
 
 Ao usar um túnel como ngrok para testar integrações externas, não exponha a rota do Bull Board. Mantenha o acesso ao painel restrito ao `localhost`.
 

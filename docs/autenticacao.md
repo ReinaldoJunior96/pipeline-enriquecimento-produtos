@@ -67,7 +67,7 @@ PLATFORM_AUTH_TTL_SECONDS
 Padrão:
 
 ```text
-1800 segundos
+300 segundos
 ```
 
 A credencial é removida após o callback ser confirmado.
