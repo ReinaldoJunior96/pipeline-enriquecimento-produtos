@@ -10,7 +10,7 @@ import {
   PlatformAuthContextStoreError,
 } from './platform-auth-context.errors.js';
 
-export const PLATFORM_AUTH_TTL_SECONDS_PADRAO = 1800;
+export const PLATFORM_AUTH_TTL_SECONDS_PADRAO = 300;
 
 export function obterPlatformAuthTtlSeconds(
   valor = process.env.PLATFORM_AUTH_TTL_SECONDS,

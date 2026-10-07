@@ -3,7 +3,7 @@ import { RedisConnection } from 'bullmq';
 import { RedisPlatformAuthContextStore } from '../../../src/infrastructure/platform-credentials/redis-platform-auth-context.store.js';
 
 describe('RedisPlatformAuthContextStore', () => {
-  const ttlSeconds = 1800;
+  const ttlSeconds = 300;
   let connection: RedisConnection;
   let redis: Awaited<RedisConnection['client']>;
   let store: RedisPlatformAuthContextStore;
