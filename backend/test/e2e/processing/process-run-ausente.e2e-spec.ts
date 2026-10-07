@@ -16,9 +16,9 @@ describe('Recebimento de item antes da criação do lote (e2e)', () => {
   let filaDeEspera: FilaDeEsperaObservavel;
 
   beforeAll(async () => {
-    const aplicacao = (await criarAplicacaoProcessamentoDeTeste()) as Awaited<
-      ReturnType<typeof criarAplicacaoProcessamentoDeTeste>
-    > & { filaDeEspera: FilaDeEsperaObservavel };
+    const aplicacao = await criarAplicacaoProcessamentoDeTeste({
+      runsExistentes: [],
+    });
 
     ({ app, repositorio, fila, filaDeEspera } = aplicacao);
   });
