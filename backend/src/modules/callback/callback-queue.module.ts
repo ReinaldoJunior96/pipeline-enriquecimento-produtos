@@ -4,10 +4,26 @@ import { Queue } from 'bullmq';
 import { CALLBACK_QUEUE } from './application/contracts/callback.queue.js';
 import { BullMqCallbackQueue } from './infrastructure/queues/bullmq-callback.queue.js';
 import { CALLBACK_QUEUE_NAME } from './infrastructure/queues/callback-queue.constants.js';
+import {
+  CALLBACK_JOB_ATTEMPTS,
+  CALLBACK_JOB_BACKOFF_MS,
+  CALLBACK_JOB_BACKOFF_TYPE,
+} from './infrastructure/queues/callback-queue.constants.js';
 
 @Global()
 @Module({
-  imports: [BullModule.registerQueue({ name: CALLBACK_QUEUE_NAME })],
+  imports: [
+    BullModule.registerQueue({
+      name: CALLBACK_QUEUE_NAME,
+      defaultJobOptions: {
+        attempts: CALLBACK_JOB_ATTEMPTS,
+        backoff: {
+          type: CALLBACK_JOB_BACKOFF_TYPE,
+          delay: CALLBACK_JOB_BACKOFF_MS,
+        },
+      },
+    }),
+  ],
   providers: [
     {
       provide: CALLBACK_QUEUE,

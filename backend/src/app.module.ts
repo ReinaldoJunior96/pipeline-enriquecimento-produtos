@@ -8,6 +8,7 @@ import { BullBoardObservabilityModule } from './infrastructure/observability/bul
 import { BullmqInfrastructureModule } from './infrastructure/queue/bullmq-infrastructure.module.js';
 import { PlatformCredentialsModule } from './infrastructure/platform-credentials/platform-credentials.module.js';
 import { CallbackQueueModule } from './modules/callback/callback-queue.module.js';
+import { CallbackModule } from './modules/callback/callback.module.js';
 import { ProcessingModule } from './modules/processing/processing.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
 import { RunsModule } from './modules/runs/runs.module.js';
@@ -20,6 +21,7 @@ import { WebhookModule } from './modules/webhook/webhook.module.js';
     BullmqInfrastructureModule,
     PlatformCredentialsModule,
     CallbackQueueModule,
+    CallbackModule,
     ProcessingModule,
     PlatformModule,
     RunsModule,

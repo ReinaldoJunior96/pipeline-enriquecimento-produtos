@@ -16,6 +16,21 @@ export class FakeRunRepository implements RunRepository {
     return this.runs.find((run) => run.runId === runId) ?? null;
   }
 
+  async markCallbackSent(runId: string): Promise<boolean> {
+    const run = this.runs.find((registro) => registro.runId === runId);
+    if (
+      !run ||
+      run.callbackSent ||
+      run.status !== 'PROCESSING' ||
+      run.finishedCount !== run.total
+    ) {
+      return false;
+    }
+    run.callbackSent = true;
+    run.status = 'COMPLETED';
+    return true;
+  }
+
   async create(input: CreateRunInput): Promise<Run> {
     if (this.runs.some(({ runId }) => runId === input.runId)) {
       throw new RunAlreadyExistsError(input.runId);

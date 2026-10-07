@@ -19,4 +19,5 @@ export interface RunRepository {
   create(input: CreateRunInput): Promise<Run>;
   exists(runId: string): Promise<boolean>;
   findById(runId: string): Promise<Run | null>;
+  markCallbackSent(runId: string): Promise<boolean>;
 }

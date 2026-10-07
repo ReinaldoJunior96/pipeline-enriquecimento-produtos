@@ -25,6 +25,26 @@ export class PrismaRunRepository implements RunRepository {
     return this.prisma.run.findUnique({ where: { runId } });
   }
 
+  async markCallbackSent(runId: string): Promise<boolean> {
+    const run = await this.prisma.run.findUnique({
+      where: { runId },
+      select: { total: true },
+    });
+    if (!run) return false;
+
+    const resultado = await this.prisma.run.updateMany({
+      where: {
+        runId,
+        status: 'PROCESSING',
+        callbackSent: false,
+        finishedCount: run.total,
+      },
+      data: { callbackSent: true, status: 'COMPLETED' },
+    });
+
+    return resultado.count === 1;
+  }
+
   async create(input: CreateRunInput): Promise<Run> {
     try {
       return await this.prisma.run.create({ data: input });

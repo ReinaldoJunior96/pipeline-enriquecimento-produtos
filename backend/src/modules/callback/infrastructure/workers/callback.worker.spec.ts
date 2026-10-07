@@ -18,8 +18,12 @@ describe('CallbackWorker', () => {
   }
 
   it('deve tornar resultado ambíguo irrecuperável para impedir retry cego', async () => {
-    const execute = vi.fn().mockRejectedValue(new CallbackOutcomeUnknownError());
-    const worker = new CallbackWorker({ execute } as unknown as EnviarCallbackRunUseCase);
+    const execute = vi
+      .fn()
+      .mockRejectedValue(new CallbackOutcomeUnknownError());
+    const worker = new CallbackWorker({
+      execute,
+    } as unknown as EnviarCallbackRunUseCase);
 
     await expect(worker.process(criarJob())).rejects.toBeInstanceOf(
       UnrecoverableError,
@@ -29,7 +33,9 @@ describe('CallbackWorker', () => {
 
   it('não deve repetir automaticamente erros explícitos 401/403', async () => {
     const execute = vi.fn().mockRejectedValue(new CallbackHttpError(401));
-    const worker = new CallbackWorker({ execute } as unknown as EnviarCallbackRunUseCase);
+    const worker = new CallbackWorker({
+      execute,
+    } as unknown as EnviarCallbackRunUseCase);
 
     await expect(worker.process(criarJob())).rejects.toBeInstanceOf(
       UnrecoverableError,
@@ -39,16 +45,25 @@ describe('CallbackWorker', () => {
   it('deve deixar falhas explícitas 5xx para o retry limitado da fila', async () => {
     const erro = new CallbackHttpError(500);
     const execute = vi.fn().mockRejectedValue(erro);
-    const worker = new CallbackWorker({ execute } as unknown as EnviarCallbackRunUseCase);
+    const worker = new CallbackWorker({
+      execute,
+    } as unknown as EnviarCallbackRunUseCase);
 
     await expect(worker.process(criarJob())).rejects.toBe(erro);
   });
 
   it('deve rejeitar jobs com nome desconhecido', async () => {
-    const worker = new CallbackWorker({ execute: vi.fn() } as unknown as EnviarCallbackRunUseCase);
+    const worker = new CallbackWorker({
+      execute: vi.fn(),
+    } as unknown as EnviarCallbackRunUseCase);
 
     await expect(
-      worker.process({ ...criarJob(), name: 'outro-job' } as Job<{ runId: string }>),
+      worker.process({
+        name: 'outro-job',
+        data: { runId: 'run-callback-worker' },
+        attemptsMade: 0,
+        opts: { attempts: 3 },
+      } as Job<{ runId: string }>),
     ).rejects.toThrow('Job de callback desconhecido');
   });
 });
