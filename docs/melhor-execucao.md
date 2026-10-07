@@ -7,8 +7,8 @@ A plataforma externa também gera seu próprio relatório após receber o `/call
 ## Execução
 
 - `run_id`: `rdubt4zwze8glml4erb5vfph`
-- itens esperados: 20
-- itens finalizados: 20
+- total: 20
+- `finished_count`: 20
 - resultado: 20 `SUCCESS`, 0 `ERROR`
 - estado final: `COMPLETED`
 - `callback_sent`: `true`
@@ -34,20 +34,7 @@ A plataforma externa também gera seu próprio relatório após receber o `/call
 
 
 
-## Execução real do lote
-
-- `run_id`: `rdubt4zwze8glml4erb5vfph`
-- itens esperados: 20
-- itens finalizados: 20
-- resultado: 20 `SUCCESS`, 0 `ERROR`
-- estado da run: `COMPLETED`
-- `callback_sent`: `true`
-- jobs de processamento concluídos: 20
-- job de callback: `completed`
-- autenticação efêmera no Redis: removida após callback confirmado
-- duração local aproximada: 7 segundos
-
-Os dados acima são evidência da aplicação para essa execução; a duração é aproximada e não constitui benchmark de desempenho. O benchmark local de ACK, medido separadamente com dependências fake, está no README e pode ser repetido com `npm run benchmark:ack` em `backend/`.
+Os dados acima são evidência local da aplicação para essa execução; a duração é aproximada e não constitui benchmark de desempenho. O benchmark local de ACK, medido separadamente com dependências fake, pode ser repetido com `npm run benchmark:ack` em `backend/`.
 
 ## Medição local de ACK
 
