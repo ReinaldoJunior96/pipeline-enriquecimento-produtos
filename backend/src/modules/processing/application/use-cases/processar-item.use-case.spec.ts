@@ -1,8 +1,63 @@
 import { FakeEnrichmentClient } from '../../../../../test/fakes/fake-enrichment.client.js';
 import { FakeProcessItemRepository } from '../../../../../test/fakes/fake-process-item.repository.js';
 import { ProcessarItemUseCase } from './processar-item.use-case.js';
+import { FakeCallbackQueue } from '../../../../../test/fakes/fake-callback.queue.js';
+import { EnrichmentNotFoundError } from '../../domain/errors/enrichment.errors.js';
 
 describe('Processar item', () => {
+  it('deve agendar callback uma vez quando o item terminal conclui a run', async () => {
+    const repositorio = new FakeProcessItemRepository();
+    const cliente = new FakeEnrichmentClient();
+    const callbackQueue = new FakeCallbackQueue();
+    const item = { runId: 'run_callback_final', seq: 0, sku: 'sku-final' };
+    await repositorio.registerIfNew(item);
+    cliente.responderCom(item.sku, {
+      sku: item.sku,
+      price: 9.99,
+      stock: 1,
+    });
+    const processarItem = new ProcessarItemUseCase(
+      repositorio,
+      cliente,
+      callbackQueue,
+    );
+
+    await processarItem.execute(item);
+    await expect(processarItem.execute(item)).rejects.toThrow(
+      'Item com status SUCCESS não pode ser processado',
+    );
+
+    expect(callbackQueue.runIds).toEqual(['run_callback_final']);
+  });
+
+  it('deve agendar callback após todos os itens terminarem, inclusive com ERROR', async () => {
+    const repositorio = new FakeProcessItemRepository();
+    const cliente = new FakeEnrichmentClient();
+    const callbackQueue = new FakeCallbackQueue();
+    const sucesso = { runId: 'run_callback_error_item', seq: 0, sku: 'sku-ok' };
+    const erro = { runId: 'run_callback_error_item', seq: 1, sku: 'sku-falha' };
+    await repositorio.registerIfNew(sucesso);
+    await repositorio.registerIfNew(erro);
+    cliente.responderCom(sucesso.sku, {
+      sku: sucesso.sku,
+      price: 5,
+      stock: 2,
+    });
+    cliente.falharCom(erro.sku, new EnrichmentNotFoundError());
+    const processarItem = new ProcessarItemUseCase(
+      repositorio,
+      cliente,
+      callbackQueue,
+    );
+
+    await processarItem.execute(sucesso);
+    expect(callbackQueue.runIds).toEqual([]);
+    await processarItem.execute(erro);
+
+    expect(callbackQueue.runIds).toEqual(['run_callback_error_item']);
+    expect(repositorio.finishedCountPorRun.get(sucesso.runId)).toBe(2);
+  });
+
   it('deve enriquecer e marcar o item como SUCCESS', async () => {
     const repositorio = new FakeProcessItemRepository();
     const cliente = new FakeEnrichmentClient();
