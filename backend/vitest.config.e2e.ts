@@ -8,5 +8,6 @@ export default defineConfig({
     root: './',
     include: ['test/e2e/**/*.e2e-spec.ts'],
     fileParallelism: false,
+    setupFiles: ['./test/support/isolamento-filas.ts'],
   },
 });

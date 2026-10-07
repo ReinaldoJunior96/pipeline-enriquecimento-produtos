@@ -7,5 +7,6 @@ export default defineConfig({
     include: ['test/integration/**/*.integration-test.ts'],
     fileParallelism: false,
     testTimeout: 30_000,
+    setupFiles: ['./test/support/isolamento-filas.ts'],
   },
 });
