@@ -44,6 +44,8 @@ describe('Corrida entre burst e process', () => {
   });
 
   afterEach(async () => {
+    cliente.chamadas.length = 0;
+    cliente.instantesDasChamadas.length = 0;
     await prisma.runItem.deleteMany({ where: { runId } });
     await prisma.run.deleteMany({ where: { runId } });
     await filaDeEspera.obliterate({ force: true });
@@ -105,6 +107,41 @@ describe('Corrida entre burst e process', () => {
     await expect(
       (await filaDeEspera.getJob(`wait-${runId}-${item.seq}`))?.getState(),
     ).resolves.toBe('completed');
+    await expect(
+      (await filaDeProcessamento.getJob(`${runId}-${item.seq}`))?.getState(),
+    ).resolves.toBe('completed');
+  });
+
+  it('deve enfileirar no processing um item PENDING já existente quando a run aparece', async () => {
+    await request(app.getHttpServer())
+      .post('/process')
+      .send({ run_id: item.runId, seq: item.seq, sku: item.sku })
+      .expect(202);
+
+    await prisma.run.create({
+      data: {
+        runId,
+        cid: 'cid_race_test',
+        total: 1,
+        startedAt: new Date('2026-10-07T12:00:00.000Z'),
+        items: { create: { seq: item.seq, sku: item.sku } },
+      },
+    });
+
+    await vi.waitFor(
+      async () => {
+        const persistido = await prisma.runItem.findUnique({
+          where: { runId_seq: { runId, seq: item.seq } },
+        });
+        expect(persistido).toEqual(
+          expect.objectContaining({ status: 'SUCCESS', attempts: 1 }),
+        );
+      },
+      { timeout: 8_000, interval: 50 },
+    );
+
+    await expect(prisma.runItem.count({ where: { runId } })).resolves.toBe(1);
+    expect(cliente.chamadas).toHaveLength(1);
     await expect(
       (await filaDeProcessamento.getJob(`${runId}-${item.seq}`))?.getState(),
     ).resolves.toBe('completed');
