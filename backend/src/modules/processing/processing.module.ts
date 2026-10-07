@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../infrastructure/database/prisma.module.js';
+import { PlatformCredentialsModule } from '../../infrastructure/platform-credentials/platform-credentials.module.js';
 import {
   ENRICHMENT_CLIENT,
   EnrichmentClient,
@@ -32,10 +33,12 @@ import { PendingRunWorker } from './infrastructure/workers/pending-run.worker.js
 import { ProcessingController } from './processing.controller.js';
 import { RunRepository } from '../runs/domain/repositories/run.repository.js';
 import { PrismaRunRepository } from '../runs/infrastructure/repositories/prisma-run.repository.js';
+import { CREDENCIAIS_LOTE_STORE, CredenciaisLoteStore } from '../runs/application/contracts/credenciais-lote.store.js';
 
 @Module({
   imports: [
     PrismaModule,
+    PlatformCredentialsModule,
     BullModule.registerQueue({ name: PROCESSING_QUEUE_NAME }),
     BullModule.registerQueue({ name: PENDING_RUN_QUEUE_NAME }),
   ],
@@ -57,9 +60,11 @@ import { PrismaRunRepository } from '../runs/infrastructure/repositories/prisma-
     DevelopmentEnrichmentClient,
     {
       provide: ENRICHMENT_CLIENT,
-      inject: [DevelopmentEnrichmentClient],
-      useFactory: (desenvolvimento: DevelopmentEnrichmentClient) =>
-        criarEnrichmentClient(desenvolvimento),
+      inject: [DevelopmentEnrichmentClient, CREDENCIAIS_LOTE_STORE],
+      useFactory: (
+        desenvolvimento: DevelopmentEnrichmentClient,
+        credenciais: CredenciaisLoteStore,
+      ) => criarEnrichmentClient(desenvolvimento, process.env, credenciais),
     },
     {
       provide: ReceberItemProcessamentoUseCase,

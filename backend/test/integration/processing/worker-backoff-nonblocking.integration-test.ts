@@ -97,7 +97,10 @@ describe('Liberação do worker durante o backoff', () => {
         .map(({ sku }) => sku)
         .sort(),
     ).toEqual([...skusComRetry].sort());
-    expect(cliente.chamadas[3]).toEqual({ sku: 'sku-immediate' });
+    expect(cliente.chamadas[3]).toEqual({
+      sku: 'sku-immediate',
+      runId: 'run_worker_nonblocking_backoff',
+    });
 
     await vi.waitFor(
       async () => {

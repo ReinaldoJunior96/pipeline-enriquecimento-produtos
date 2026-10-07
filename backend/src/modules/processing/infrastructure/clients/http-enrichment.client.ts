@@ -9,13 +9,15 @@ import {
   EnrichmentTransientError,
   EnrichmentUnauthorizedError,
 } from '../../domain/errors/enrichment.errors.js';
+import { CredenciaisLoteStore } from '../../../runs/application/contracts/credenciais-lote.store.js';
 
 const RETRY_AFTER_PADRAO_EM_SEGUNDOS = 1;
 
 export interface HttpEnrichmentClientConfig {
   baseUrl: string;
-  cid: string;
-  token: string;
+  cid?: string;
+  token?: string;
+  credenciaisPorRun?: Pick<CredenciaisLoteStore, 'obter'>;
 }
 
 export class HttpEnrichmentClient implements EnrichmentClient {
@@ -23,13 +25,23 @@ export class HttpEnrichmentClient implements EnrichmentClient {
 
   async enrich(input: EnrichmentInput): Promise<EnrichmentResult> {
     const baseUrl = this.config.baseUrl.replace(/\/$/, '');
+    const credenciais = input.runId
+      ? this.config.credenciaisPorRun?.obter(input.runId)
+      : undefined;
+    const cid = credenciais?.cid ?? this.config.cid;
+    const token = credenciais?.token ?? this.config.token;
+    if (!cid || !token) {
+      throw new EnrichmentUnauthorizedError(
+        'Credenciais de plataforma não disponíveis para esta run',
+      );
+    }
     const response = await fetch(
       `${baseUrl}/enrich/${encodeURIComponent(input.sku)}`,
       {
         method: 'GET',
         headers: {
-          'x-cid': this.config.cid,
-          'x-token': this.config.token,
+          'x-cid': cid,
+          'x-token': token,
         },
       },
     );

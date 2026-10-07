@@ -46,7 +46,10 @@ export class ProcessarItemUseCase {
     this.logger.log({ evento: 'enriquecimento.iniciado', ...contexto });
 
     try {
-      const resultado = await this.cliente.enrich({ sku: input.sku });
+      const resultado = await this.cliente.enrich({
+        sku: input.sku,
+        runId: input.runId,
+      });
       const concluiu = await this.repositorio.markSuccess({
         runId: input.runId,
         seq: input.seq,

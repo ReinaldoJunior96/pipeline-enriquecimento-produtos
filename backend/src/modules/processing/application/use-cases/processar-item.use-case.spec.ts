@@ -28,7 +28,9 @@ describe('Processar item', () => {
       errorCode: null,
       errorMessage: null,
     });
-    expect(cliente.chamadas).toEqual([{ sku: 'sku-success' }]);
+    expect(cliente.chamadas).toEqual([
+      { sku: 'sku-success', runId: 'run_success' },
+    ]);
   });
 
   it('não deve reprocessar um item com SUCCESS', async () => {
