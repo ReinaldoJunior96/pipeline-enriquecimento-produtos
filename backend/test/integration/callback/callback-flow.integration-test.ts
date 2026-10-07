@@ -1,4 +1,4 @@
-import { Job, Queue, UnrecoverableError } from 'bullmq';
+import { Queue, Worker as BullMqWorker } from 'bullmq';
 import { AddressInfo } from 'node:net';
 import {
   createServer,
@@ -20,7 +20,6 @@ import { ConsolidarResultadoRunUseCase } from '../../../src/modules/callback/app
 import { EnviarCallbackRunUseCase } from '../../../src/modules/callback/application/use-cases/enviar-callback-run.use-case.js';
 import { HttpCallbackClient } from '../../../src/modules/callback/infrastructure/clients/http-callback.client.js';
 import { CallbackWorker } from '../../../src/modules/callback/infrastructure/workers/callback.worker.js';
-import { SEND_RESULT_JOB_NAME } from '../../../src/modules/callback/infrastructure/queues/callback-queue.constants.js';
 
 describe('Fluxo integrado de conclusão e callback', () => {
   const token = 'token-do-callback-apenas-redis';
@@ -250,27 +249,46 @@ describe('Fluxo integrado de conclusão e callback', () => {
         stock: 2,
       });
       callbackServerStatus = status;
-      const worker = new CallbackWorker(criarEnviarCallback());
-      const job = {
-        name: SEND_RESULT_JOB_NAME,
-        data: { runId },
-        attemptsMade: 0,
-        opts: { attempts: 3 },
-      } as Job<{ runId: string }>;
-
-      await expect(worker.process(job)).rejects.toBeInstanceOf(
-        UnrecoverableError,
+      const processor = new CallbackWorker(criarEnviarCallback());
+      const worker = new BullMqWorker<{ runId: string }>(
+        queue.name,
+        (job) => processor.process(job),
+        {
+          connection: {
+            host: process.env.REDIS_HOST ?? 'localhost',
+            port: Number(process.env.REDIS_PORT ?? 6379),
+          },
+        },
       );
 
-      expect(callbackRequests).toHaveLength(1);
-      await expect(runs.findById(runId)).resolves.toEqual(
-        expect.objectContaining({
-          status: 'PROCESSING',
-          finishedCount: 1,
-          callbackSent: false,
-        }),
-      );
-      await expect(authStore.getForRun(runId)).resolves.toEqual({ cid, token });
+      try {
+        await worker.waitUntilReady();
+        await callbackQueue.enqueue(runId);
+        await vi.waitFor(
+          async () => {
+            const job = await queue.getJob(`callback-${runId}`);
+            await expect(job?.getState()).resolves.toBe('failed');
+          },
+          { timeout: 5_000, interval: 25 },
+        );
+
+        const job = await queue.getJob(`callback-${runId}`);
+        expect(job?.attemptsMade).toBe(1);
+        expect(callbackRequests).toHaveLength(1);
+        await expect(runs.findById(runId)).resolves.toEqual(
+          expect.objectContaining({
+            status: 'PROCESSING',
+            finishedCount: 1,
+            callbackSent: false,
+          }),
+        );
+        await expect(authStore.getForRun(runId)).resolves.toEqual({
+          cid,
+          token,
+        });
+      } finally {
+        await worker.close();
+      }
     },
   );
 });
