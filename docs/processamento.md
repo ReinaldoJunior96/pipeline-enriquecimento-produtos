@@ -233,7 +233,7 @@ O callback possui uma fila própria.
 
 Isso evita que uma falha na entrega final interfira no worker responsável pelo enriquecimento dos itens.
 
-Como a plataforma informa que cada chamada ao `/callback` gera um novo relatório, falhas de resultado ambíguo não recebem retry automático cego.
+Como cada chamada ao `/callback` pode gerar um novo relatório, respostas `5xx` e falhas de rede/conexão são tratadas como resultado incerto e não recebem retry automático cego. A resposta `429` continua sujeita a retry, respeitando `Retry-After`.
 
 ## Arquitetura
 

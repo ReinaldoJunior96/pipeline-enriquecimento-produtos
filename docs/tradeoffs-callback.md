@@ -42,7 +42,7 @@ Essa decisão reduz o risco de gerar relatórios duplicados.
 - `2xx`: callback confirmado;
 - `429`: retry respeitando `Retry-After`;
 - outros `4xx`: não repetir automaticamente;
-- `5xx`: retry limitado;
+- `5xx`: resultado incerto, sem retry automático cego, pois cada envio pode gerar um novo relatório;
 - erro de rede/conexão com resultado incerto: não repetir automaticamente.
 
 Se a plataforma confirmar o callback, mas a gravação local do sucesso falhar, também não há retry automático e a autenticação não é removida. Se a gravação local ocorrer, mas a remoção da autenticação falhar, o estado persistido impede novo envio e a chave efêmera expira pelo TTL configurado.
