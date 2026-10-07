@@ -1,67 +1,249 @@
 # Processamento assíncrono
 
-A plataforma entrega cada SKU em `POST /process`:
+A plataforma envia cada SKU para:
 
-```json
-{ "run_id": "run_abc123", "seq": 0, "sku": "sku-001" }
+```http
+POST /process
 ```
 
-`run_id + seq` é a chave idempotente. O item é persistido em PostgreSQL e enviado à fila BullMQ; o endpoint retorna `202 accepted` sem esperar o enrich. O SLA esperado para ACK é até 600 ms. A evidência local de 100 chamadas está em [melhor execução local](./melhor-execucao.md) e não representa medição de produção.
+Exemplo:
 
-## Run ainda não persistida
+```json
+{
+  "run_id": "run_abc123",
+  "seq": 0,
+  "sku": "sku-001"
+}
+```
 
-O burst externo pode começar a entregar itens antes de a run ser persistida localmente. Nesse intervalo, `process-ingress` mantém a mensagem sem criar item órfão. O worker `wait-for-run` tenta localizar a run por até 10 tentativas, com backoff fixo de 500 ms. Quando ela aparece, o item é registrado e segue para `processing`; ao esgotar, registra o evento `process.espera_esgotada`.
+A aplicação valida e registra a mensagem, responde rapidamente com `202 accepted` e deixa o processamento pesado para os workers.
 
-## Idempotência e recuperação do enqueue
+O objetivo é não manter a requisição HTTP esperando pelo `/enrich` ou pelo callback final.
 
-O banco mantém `UNIQUE (run_id, seq)` e a chave estrangeira para `runs`. Jobs da fila `processing` usam `jobId = <runId>-<seq>`.
+## Fluxo
 
-- item novo: persistir como `PENDING` e enfileirar;
-- duplicata `PENDING`: tentar enfileirar novamente com o mesmo ID determinístico, recuperando o caso de persistência bem-sucedida seguida de falha do enqueue;
-- duplicata `PROCESSING`: não criar outro job;
-- duplicata `SUCCESS` ou `ERROR`: ACK e no-op.
+```text
+/process
+   ↓
+persistência + idempotência
+   ↓
+ACK 202
+   ↓
+BullMQ
+   ↓
+/enrich
+   ↓
+SUCCESS ou ERROR
+   ↓
+finished_count
+   ↓
+consolidação
+   ↓
+/callback
+```
 
-Se o primeiro enqueue falhar, `/process` retorna erro e deixa o item `PENDING`; a plataforma pode repetir a entrega e o backend tenta garantir o job novamente. A restrição única impede duplicação do item e o ID determinístico torna repetido o enqueue seguro no BullMQ.
+## Idempotência
 
-## Filas e concorrência
+A entrega da plataforma é considerada `at-least-once`, portanto uma mesma mensagem pode chegar mais de uma vez.
 
-As filas são:
+A chave lógica utilizada é:
 
-- `process-ingress`: itens cuja run ainda não está visível no banco;
-- `processing`: enrich e persistência de cada item;
-- `callback`: consolidação e envio do resultado final.
+```text
+run_id + seq
+```
 
-O worker de `processing` tem concorrência 3 por processo. Isso atende o cenário atual de uma instância; não é limite global. Com várias réplicas, o total poderá ser três por réplica e será necessário um limitador distribuído para respeitar o downstream.
+O PostgreSQL mantém:
 
-## Enriquecimento e retries
+```text
+UNIQUE (run_id, seq)
+```
 
-O worker chama `GET /enrich/:sku`, enviando `x-cid` e `x-token` recuperados do Redis por `runId`. O token não vai no payload BullMQ, banco ou logs.
+e os jobs de processamento utilizam um `jobId` determinístico:
 
-HTTP 429 respeita `Retry-After`; falhas HTTP transitórias e erros de transporte (timeout, DNS, socket/conexão interrompida) são repetidos com backoff. Falhas de transporte recebem `NETWORK_ERROR` sem propagar a mensagem bruta da exceção. HTTP 401 e 404 são definitivos. Após três tentativas transitórias, o item termina em `ERROR` com `RETRY_EXHAUSTED`, incrementa `finished_count` uma vez e o pipeline pode continuar.
+```text
+<runId>-<seq>
+```
 
-## Progresso, consolidação e callback
+Com isso, uma entrega repetida não cria outro item nem gera processamento duplicado.
 
-Uma transação finaliza cada item e incrementa `runs.finished_count` somente uma vez. Quando `finished_count == total`, é criado um job determinístico `callback-<runId>` na fila `callback`.
+Se um item estiver `PENDING` após uma falha de enqueue, uma nova entrega pode garantir novamente sua entrada na fila.
 
-O agendamento é reentrante: se o enqueue falhar depois de o item se tornar terminal, o retry do job de processamento encontra o item terminal e tenta garantir novamente o callback. Se o callback já foi confirmado (`callback_sent=true`), não agenda outro. O callback só marca essa flag após resposta externa 2xx; falhas ambíguas não são repetidas cegamente.
+## Run ainda não disponível
 
-O worker consolida os itens terminais em ordem de `seq` e envia `POST /callback` com `x-token`. Após confirmação externa, marca a run como `COMPLETED`, `callback_sent=true` e remove do Redis as credenciais efêmeras da run.
+A plataforma pode começar a enviar `/process` imediatamente após o `/burst`, antes da persistência local da run terminar.
+
+Nesse caso, a mensagem segue para a fila:
+
+```text
+process-ingress
+```
+
+O job `wait-for-run` faz até 10 tentativas, com backoff fixo de 500 ms. Enquanto a run não está no PostgreSQL, nenhum `run_item` órfão é criado. Quando a run fica disponível, o worker registra o item e o encaminha para `processing`. Ao esgotar as tentativas, o job falha e registra o evento seguro `process.espera_esgotada`.
+
+Essa decisão preserva a chave estrangeira e evita criar itens órfãos apenas para contornar uma condição de corrida.
+
+## Processamento
+
+A fila:
+
+```text
+processing
+```
+
+executa o enriquecimento dos itens.
+
+Cada job contém apenas:
+
+```json
+{
+  "runId": "...",
+  "seq": 0,
+  "sku": "sku-001"
+}
+```
+
+As credenciais não trafegam no BullMQ.
+
+O worker recupera `cid` e `token` temporariamente do Redis usando o `runId` e chama:
+
+```http
+GET /enrich/:sku
+x-cid: <cid>
+x-token: <token>
+```
+
+## Concorrência
+
+O worker de processamento utiliza:
+
+```text
+concurrency = 3
+```
+
+A escolha respeita o limite atual do serviço de enriquecimento sem disparar os 20 itens simultaneamente.
+
+Com múltiplas réplicas, esse limite deixaria de ser global e seria necessário adicionar um mecanismo distribuído de rate limiting.
+
+## Falhas e retries
+
+Falhas transitórias são repetidas com backoff.
+
+Tratamento atual:
+
+- `429`: retry respeitando `Retry-After`;
+- `5xx`: retry;
+- erros de rede/conexão: retry como `NETWORK_ERROR`;
+- `401`: erro definitivo;
+- `404`: erro definitivo.
+
+Após três tentativas transitórias sem sucesso:
+
+```text
+status = ERROR
+error_code = RETRY_EXHAUSTED
+```
+
+Um item com erro não bloqueia o restante do lote.
+
+## Conclusão da run
+
+Cada item que entra pela primeira vez em um estado terminal:
+
+```text
+SUCCESS
+ou
+ERROR
+```
+
+incrementa `finished_count` de forma transacional.
+
+Quando:
+
+```text
+finished_count == total
+```
+
+é agendado um único job:
+
+```text
+callback-<runId>
+```
+
+na fila `callback`.
+
+O agendamento é reentrante. Se o enqueue falhar depois de o último item já ter sido finalizado, uma reexecução do processamento terminal verifica novamente se a run está completa. Se `callback_sent=false`, tenta garantir o job novamente com o ID determinístico `callback-<runId>`. Se `callback_sent=true`, não agenda outro callback.
+
+O worker consolida os resultados em ordem de `seq` e envia:
+
+```http
+POST /callback
+x-token: <token>
+```
+
+Somente itens `SUCCESS` entram em `result`, pois o contrato externo não define um formato para itens que terminaram em `ERROR`.
+
+Após uma resposta HTTP `2xx`:
+
+```text
+status = COMPLETED
+callback_sent = true
+```
+
+e a credencial efêmera da run é removida do Redis.
+
+## Decisões arquiteturais
+
+### Processamento assíncrono
+
+BullMQ desacopla o ACK do trabalho pesado.
+
+Isso permite responder rapidamente a `/process` enquanto enriquecimento, retries e callback continuam em segundo plano.
+
+Kafka seria mais indicado para alto volume de eventos, múltiplos consumidores e streaming distribuído. RabbitMQ também resolveria o problema, mas adicionaria complexidade operacional desnecessária para este escopo, já que o Redis já faz parte da arquitetura.
+
+### PostgreSQL como fonte da verdade
+
+Estados de domínio como:
+
+```text
+run
+run_items
+status
+finished_count
+callback_sent
+```
+
+ficam persistidos no PostgreSQL.
+
+Redis/BullMQ são usados para processamento e estado temporário, não como fonte definitiva da execução.
+
+### Idempotência em mais de uma camada
+
+A solução utiliza:
+
+- restrição única no PostgreSQL;
+- `jobId` determinístico no BullMQ;
+- `callback_sent` para impedir reenvio automático após confirmação.
+
+Essa combinação protege o pipeline contra entregas repetidas e retries internos.
+
+### Callback separado
+
+O callback possui uma fila própria.
+
+Isso evita que uma falha na entrega final interfira no worker responsável pelo enriquecimento dos itens.
+
+Como a plataforma informa que cada chamada ao `/callback` gera um novo relatório, falhas de resultado ambíguo não recebem retry automático cego.
+
+## Arquitetura
+
+O diagrama abaixo apresenta uma visão mais ampla do processamento:
 
 ![Arquitetura de processamento](../Arquitetura-processamento-produtos.jpg)
 
-## E se o lote tivesse 20.000 SKUs?
-
-Não é uma escala implementada ou validada aqui. A estratégia seria:
-
-- manter ACK rápido, persistência idempotente, processamento assíncrono e backpressure pela fila;
-- escalar workers horizontalmente apenas junto de limiter global, métricas de lag, retries controlados e DLQ; mais workers não elevam indefinidamente a capacidade do downstream;
-- manter `finished_count` incremental e índices por run/status; paginar ou processar em batches na consolidação, sem carregar 20.000 itens desnecessariamente em memória;
-- validar o limite de tamanho do callback único da plataforma; usar streaming/batching interno se necessário, sem inventar callbacks em chunks sem suporte contratual;
-- dimensionar o TTL da autenticação Redis para a duração maior da execução;
-- considerar múltiplas réplicas, Postgres/Redis gerenciados e shutdown gracioso.
-
-## Etapas relacionadas
+## Documentação relacionada
 
 - [Criação do lote](./criacao-lote.md)
 - [Teste real pelo Swagger](./teste-real-manual.md)
 - [Observabilidade das filas](./observabilidade-filas.md)
+- [Trade-offs do callback](./tradeoffs-callback.md)

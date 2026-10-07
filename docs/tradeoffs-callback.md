@@ -1,39 +1,89 @@
-# Decisões do callback de conclusão
+# Trade-offs do callback
 
-O callback externo não é idempotente: a documentação informa que cada envio
-gera um novo relatório. Sem uma chave de idempotência aceita pela plataforma ou
-uma consulta de estado, não é possível garantir `exactly-once` diante de uma
-interrupção entre a aceitação remota e a confirmação local.
+O callback externo não é idempotente: cada envio pode gerar um novo relatório. Sem uma chave de idempotência aceita pela plataforma ou uma consulta de estado, não é possível garantir `exactly-once` diante de uma interrupção entre a aceitação remota e a confirmação local.
 
-Por isso, o backend grava `callback_sent=true` e `status=COMPLETED` somente após
-receber qualquer resposta HTTP 2xx. O corpo da resposta é ignorado, pois o
-contrato não define um formato. Depois da confirmação local, a autenticação
-efêmera da run é removida do Redis.
+## Como funciona
 
-Erros HTTP explícitos 429 e 5xx podem ser repetidos de forma limitada; para
-429, o worker respeita `Retry-After` quando presente. Respostas 4xx diferentes
-de 429, inclusive 401 e 403, são definitivas e não são repetidas. Timeout ou
-conexão interrompida têm resultado ambíguo: a plataforma pode ter aceitado o
-callback sem que a aplicação tenha recebido a resposta. Nesse caso, o job não
-é repetido automaticamente, `callback_sent` permanece falso e a autenticação
-é preservada para investigação.
+Quando todos os itens de uma run terminam, a aplicação consolida os resultados e envia:
 
-Se a plataforma confirmou o callback, mas a gravação local do sucesso falhou,
-também não há retry automático. A autenticação não é removida e o erro exige
-investigação, pois repetir o envio pode criar outro relatório. Se a gravação
-local ocorreu, mas a remoção da autenticação falhou, o estado persistido impede
-um novo envio; a chave efêmera expira pelo TTL configurado.
+```http
+POST /callback
+x-token: <token>
+```
 
-A fila `callback` contém apenas `{ runId }`, identificada por
-`callback-${runId}`. `cid` e token são recuperados do estado persistido e do
-Redis no momento do envio; token nunca vai para PostgreSQL, payload BullMQ ou
-logs. A comparação entre o CID de Redis e o CID da run é obrigatória.
+A run só é marcada como concluída depois que a plataforma responde com HTTP `2xx`. O corpo da resposta é ignorado, pois o contrato não define um formato.
 
-O resultado é ordenado por `seq` crescente e inclui somente itens `SUCCESS`,
-que são os únicos compatíveis com o schema documentado (`seq`, `sku`, `price`,
-`stock`). Itens `ERROR` contam para a conclusão da run, mas são omitidos do
-relatório porque o contrato externo não especifica como representá-los.
+Nesse momento:
 
-Este comportamento privilegia evitar relatórios duplicados em situações
-ambíguas. Uma eventual recuperação manual deve primeiro confirmar com a
-plataforma se o relatório foi criado antes de reenviar.
+```text
+status = COMPLETED
+callback_sent = true
+```
+
+e a credencial temporária da run é removida do Redis.
+
+## Por que evitamos reenviar automaticamente
+
+A documentação informa que cada chamada ao `/callback` gera um novo relatório.
+
+Por isso, se houver erro de rede/conexão com resultado incerto, não é seguro simplesmente enviar novamente. A plataforma pode ter recebido o resultado mesmo que a aplicação não tenha recebido a resposta.
+
+Nesses casos:
+
+- `callback_sent` continua `false`;
+- a credencial permanece no Redis;
+- o envio não é repetido automaticamente;
+- o caso precisa ser verificado antes de uma nova tentativa.
+
+Essa decisão reduz o risco de gerar relatórios duplicados.
+
+## Tratamento de erros
+
+- `2xx`: callback confirmado;
+- `429`: retry respeitando `Retry-After`;
+- outros `4xx`: não repetir automaticamente;
+- `5xx`: retry limitado;
+- erro de rede/conexão com resultado incerto: não repetir automaticamente.
+
+Se a plataforma confirmar o callback, mas a gravação local do sucesso falhar, também não há retry automático e a autenticação não é removida. Se a gravação local ocorrer, mas a remoção da autenticação falhar, o estado persistido impede novo envio e a chave efêmera expira pelo TTL configurado.
+
+## Segurança
+
+O job da fila de callback contém apenas:
+
+```json
+{
+  "runId": "..."
+}
+```
+
+O `cid` e o `token` são recuperados no momento do envio.
+
+O token não é:
+
+- persistido no PostgreSQL;
+- enviado no payload BullMQ;
+- registrado em logs.
+
+## Resultado enviado
+
+Os itens são enviados ordenados por `seq`.
+
+Somente itens `SUCCESS` entram no resultado porque o contrato da plataforma define apenas:
+
+```json
+{
+  "seq": 0,
+  "sku": "sku-001",
+  "price": 149.9,
+  "stock": 42
+}
+```
+
+Itens `ERROR` contam para o encerramento da run, mas não são enviados porque a documentação não define como representá-los.
+
+## Trade-off
+
+A escolha prioriza evitar callbacks duplicados.
+
+Em uma falha de comunicação, pode ser necessário verificar manualmente se a plataforma gerou o relatório antes de reenviar o resultado.
