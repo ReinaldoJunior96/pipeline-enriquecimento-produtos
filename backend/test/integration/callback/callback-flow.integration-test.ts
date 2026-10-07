@@ -1,4 +1,4 @@
-import { Queue } from 'bullmq';
+import { Job, Queue, UnrecoverableError } from 'bullmq';
 import { AddressInfo } from 'node:net';
 import {
   createServer,
@@ -19,6 +19,8 @@ import { BullMqCallbackQueue } from '../../../src/modules/callback/infrastructur
 import { ConsolidarResultadoRunUseCase } from '../../../src/modules/callback/application/use-cases/consolidar-resultado-run.use-case.js';
 import { EnviarCallbackRunUseCase } from '../../../src/modules/callback/application/use-cases/enviar-callback-run.use-case.js';
 import { HttpCallbackClient } from '../../../src/modules/callback/infrastructure/clients/http-callback.client.js';
+import { CallbackWorker } from '../../../src/modules/callback/infrastructure/workers/callback.worker.js';
+import { SEND_RESULT_JOB_NAME } from '../../../src/modules/callback/infrastructure/queues/callback-queue.constants.js';
 
 describe('Fluxo integrado de conclusão e callback', () => {
   const token = 'token-do-callback-apenas-redis';
@@ -234,4 +236,41 @@ describe('Fluxo integrado de conclusão e callback', () => {
       expect.objectContaining({ finishedCount: 3, callbackSent: true }),
     );
   });
+
+  it.each([500, 502, 503])(
+    'deve manter estado e autenticação quando callback responde HTTP %s',
+    async (status) => {
+      await iniciarRun(1);
+      await items.registerIfNew({ runId, seq: 0, sku: 'sku-5xx' });
+      await items.markProcessing(runId, 0);
+      await items.markSuccess({
+        runId,
+        seq: 0,
+        price: 15,
+        stock: 2,
+      });
+      callbackServerStatus = status;
+      const worker = new CallbackWorker(criarEnviarCallback());
+      const job = {
+        name: SEND_RESULT_JOB_NAME,
+        data: { runId },
+        attemptsMade: 0,
+        opts: { attempts: 3 },
+      } as Job<{ runId: string }>;
+
+      await expect(worker.process(job)).rejects.toBeInstanceOf(
+        UnrecoverableError,
+      );
+
+      expect(callbackRequests).toHaveLength(1);
+      await expect(runs.findById(runId)).resolves.toEqual(
+        expect.objectContaining({
+          status: 'PROCESSING',
+          finishedCount: 1,
+          callbackSent: false,
+        }),
+      );
+      await expect(authStore.getForRun(runId)).resolves.toEqual({ cid, token });
+    },
+  );
 });

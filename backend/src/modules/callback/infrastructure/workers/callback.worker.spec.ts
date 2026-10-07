@@ -42,11 +42,26 @@ describe('CallbackWorker', () => {
     );
   });
 
-  it('deve deixar falhas explícitas 5xx para o retry limitado da fila', async () => {
-    const erro = new CallbackHttpError(500);
-    const execute = vi.fn().mockRejectedValue(erro);
+  it.each([500, 502, 503])(
+    'deve tratar HTTP %s como resultado incerto sem retry automático',
+    async (status) => {
+      const execute = vi
+        .fn()
+        .mockRejectedValue(new CallbackHttpError(status));
+      const worker = new CallbackWorker({
+        execute,
+      } as unknown as EnviarCallbackRunUseCase);
+
+      await expect(worker.process(criarJob())).rejects.toBeInstanceOf(
+        UnrecoverableError,
+      );
+    },
+  );
+
+  it('deve manter HTTP 429 elegível para retry', async () => {
+    const erro = new CallbackHttpError(429, 2);
     const worker = new CallbackWorker({
-      execute,
+      execute: vi.fn().mockRejectedValue(erro),
     } as unknown as EnviarCallbackRunUseCase);
 
     await expect(worker.process(criarJob())).rejects.toBe(erro);
