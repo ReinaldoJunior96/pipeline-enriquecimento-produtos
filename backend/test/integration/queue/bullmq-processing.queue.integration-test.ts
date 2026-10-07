@@ -3,7 +3,7 @@ import { ProcessItemInput } from '../../../src/modules/processing/domain/reposit
 import { BullMqProcessingQueue } from '../../../src/modules/processing/infrastructure/queues/bullmq-processing.queue.js';
 
 describe('BullMqProcessingQueue com Redis', () => {
-  const nomeFila = 'processing-integration';
+  const nomeFila = `processing-integration-${crypto.randomUUID()}`;
   let fila: Queue<ProcessItemInput>;
 
   beforeAll(() => {
