@@ -25,6 +25,12 @@ export class EnrichmentTransientError extends EnrichmentError {
   }
 }
 
+export class EnrichmentTransportError extends EnrichmentError {
+  constructor() {
+    super('Falha de comunicação com a plataforma de enriquecimento', 'NETWORK_ERROR', true);
+  }
+}
+
 export class EnrichmentUnauthorizedError extends EnrichmentError {
   constructor(message = 'Credencial inválida para enriquecimento') {
     super(message, 'UNAUTHORIZED', false);

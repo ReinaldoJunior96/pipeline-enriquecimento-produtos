@@ -6,6 +6,7 @@ import {
 import {
   EnrichmentNotFoundError,
   EnrichmentRateLimitError,
+  EnrichmentTransportError,
   EnrichmentTransientError,
   EnrichmentUnauthorizedError,
 } from '../../domain/errors/enrichment.errors.js';
@@ -30,16 +31,21 @@ export class HttpEnrichmentClient implements EnrichmentClient {
       throw new EnrichmentTransientError(
         `Autenticação temporariamente indisponível para a run ${input.runId}`,
       );
-    const response = await fetch(
-      `${baseUrl}/enrich/${encodeURIComponent(input.sku)}`,
-      {
-        method: 'GET',
-        headers: {
-          'x-cid': credenciais.cid,
-          'x-token': credenciais.token,
+    let response: Response;
+    try {
+      response = await fetch(
+        `${baseUrl}/enrich/${encodeURIComponent(input.sku)}`,
+        {
+          method: 'GET',
+          headers: {
+            'x-cid': credenciais.cid,
+            'x-token': credenciais.token,
+          },
         },
-      },
-    );
+      );
+    } catch {
+      throw new EnrichmentTransportError();
+    }
 
     if (!response.ok) {
       this.lancarErroDaResposta(response);
