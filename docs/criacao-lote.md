@@ -6,7 +6,19 @@ Essas informações são utilizadas para solicitar a criação de uma nova execu
 
 ## Solicitação do lote
 
-A aplicação realiza a chamada:
+No fluxo normal, o operador copia o `cid` e o `token` retornados pelo `POST /platform/register` e envia ao backend:
+
+```http
+POST /runs/burst
+Content-Type: application/json
+
+{
+  "cid": "<cid>",
+  "token": "<token>"
+}
+```
+
+O backend realiza a chamada externa:
 
 ```http
 POST /burst/:cid
@@ -27,6 +39,7 @@ Em caso de sucesso, a plataforma externa cria um novo lote e retorna os metadado
 ```json
 {
   "run_id": "run_abc123",
+  "cid": "cid_exemplo",
   "total": 20,
   "started_at": "2026-08-03T12:00:00Z"
 }
@@ -42,7 +55,9 @@ Cada nova chamada ao `/burst/:cid` gera uma nova execução e, consequentemente,
 
 ## Persistência do lote
 
-Após o retorno de sucesso do `/burst/:cid`, os dados da execução são persistidos internamente.
+Após validar a resposta externa do `/burst/:cid`, o backend persiste os dados da execução antes de responder `201` ao cliente. Portanto, uma resposta de sucesso de `POST /runs/burst` significa que a run já foi criada internamente.
+
+O token é usado apenas para a chamada externa e fica associado ao `runId` em memória por até 24 horas para autenticar o enrich. Ele não é persistido nem registrado em logs. O cache é perdido ao reiniciar o backend.
 
 O objetivo dessa persistência é manter o controle do ciclo de vida do lote durante todo o processamento.
 

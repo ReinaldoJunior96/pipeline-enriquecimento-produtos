@@ -1,86 +1,33 @@
-# Teste real manual
+# Teste real manual pelo Swagger
 
-Este procedimento é exclusivo para desenvolvimento local. Não use credenciais reais em commits, documentação, logs ou histórico compartilhado do terminal.
+Este fluxo de desenvolvimento usa o próprio backend como interface para a plataforma externa. Não salve credenciais reais em commits, documentação, testes ou logs.
 
 ## Pré-requisitos
 
-No `.env` local do backend, mantenha:
+Configure no `.env` local:
 
 ```env
+PLATAFORMA_BASE_URL=<url-base-da-plataforma>
+PLATAFORMA_REGISTER_URL=<url-de-register-da-plataforma>
 ENRICHMENT_MODE=http
-PLATAFORMA_BASE_URL=<base da plataforma>
-PLATAFORMA_CID=<cid recebido no registro>
-PLATAFORMA_TOKEN=<token recebido no registro>
-WEBHOOK_PUBLIC_URL=<url pública temporária>
 ADMIN_TEST_ENDPOINTS_ENABLED=true
 ```
 
-O endpoint `POST /admin/runs` e o Bull Board são ferramentas locais. Configure `ADMIN_TEST_ENDPOINTS_ENABLED=false` e `BULL_BOARD_ENABLED=false` fora do desenvolvimento.
+O CID e o token atuais não precisam ficar no `.env`: o Swagger retorna as credenciais do registro e você as copia para o burst. Após a resposta do burst, o backend mantém CID/token em memória, associados ao `runId`, por até 24 horas para autenticar os enrichments. Eles não são gravados no PostgreSQL nem em logs; reiniciar o backend apaga esse cache.
 
-## 1. Subir os serviços
+## Fluxo
 
-```bash
-docker compose up -d --build
-docker compose ps
-```
+1. Suba os serviços com `docker compose up -d --build` e confirme com `docker compose ps`.
+2. Inicie `ngrok http 3000` e copie a URL pública atual. O handshake `/check` precisa estar acessível pela plataforma.
+3. Abra o Swagger em [http://localhost:3000/docs](http://localhost:3000/docs).
+4. Execute `POST /platform/register` com nome e URL pública do ngrok. A resposta contém `cid` e `token` para copiar.
+5. Execute `POST /runs/burst` com o `cid` e o `token` recebidos. O backend chama a plataforma externa, valida a resposta e persiste a run antes de responder `201`.
+6. A plataforma envia os itens a `POST /process`; o backend aceita rapidamente e processa de forma assíncrona. O `process-ingress` protege a corrida entre a chegada do item e a persistência da run.
+7. Acompanhe as filas no Bull Board em [http://localhost:3000/admin/queues](http://localhost:3000/admin/queues) e os registros no PostgreSQL.
 
-Confirme que backend, PostgreSQL e Redis estão saudáveis.
+O fluxo normal não chama diretamente o `/register` ou `/burst` externo e não cadastra a run manualmente. `POST /admin/runs` é apenas um recurso temporário de desenvolvimento, não necessário neste fluxo.
 
-## 2. Subir o ngrok manualmente
-
-```bash
-ngrok http 3000
-```
-
-Não exponha `/admin/queues` ou `/admin/runs` publicamente. Se o túnel encaminhar todas as rotas sem filtro, desabilite as rotas administrativas e use outro processo/porta exclusivamente local para administrá-las.
-
-## 3. Registrar o webhook
-
-```bash
-curl -X POST "<PLATAFORMA_BASE_URL>/register" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "<NOME>",
-    "webhook": "<WEBHOOK_PUBLIC_URL>"
-  }'
-```
-
-Guarde `cid` e `token` somente no `.env` local. Reinicie o backend depois de alterar as variáveis.
-
-## 4. Solicitar o lote
-
-Deixe o comando de cadastro local da próxima seção preparado antes desta chamada.
-
-```bash
-curl -X POST "<PLATAFORMA_BASE_URL>/burst/<CID>" \
-  -H "x-token: <TOKEN>"
-```
-
-A resposta esperada contém `run_id`, `total` e `started_at`.
-
-## 5. Cadastrar imediatamente o lote local
-
-```bash
-curl -X POST http://localhost:3000/admin/runs \
-  -H "Content-Type: application/json" \
-  -d '{
-    "run_id": "<RUN_ID>",
-    "cid": "<CID>",
-    "total": <TOTAL>,
-    "started_at": "<STARTED_AT>"
-  }'
-```
-
-O endpoint retorna `201` no cadastro e `409` se o `run_id` já existir. Ele não recebe nem persiste token.
-
-## 6. Acompanhar o processamento
-
-- logs seguros do backend;
-- Bull Board local em `http://localhost:3000/admin/queues`;
-- tabela `runs`;
-- tabela `run_items`.
-
-Exemplo de consulta local:
+Consulta para confirmar a persistência:
 
 ```sql
 SELECT run_id, cid, total, status, finished_count, callback_sent
@@ -93,23 +40,11 @@ WHERE run_id = '<RUN_ID>'
 ORDER BY seq;
 ```
 
-## Risco de corrida
-
-O fluxo manual não é atomicamente seguro. A plataforma pode chamar `POST /process` imediatamente após responder ao `/burst`, antes que `POST /admin/runs` seja concluído. Como `run_items.run_id` possui uma chave estrangeira para `runs.run_id`, o item pode falhar ao ser persistido.
-
-Preparar previamente o comando e executá-lo logo após o `/burst` apenas reduz a janela; não elimina o risco.
-
-Uma solução futura deve ser escolhida explicitamente, por exemplo:
-
-- integrar a chamada ao `/burst` na aplicação e persistir sua resposta no mesmo fluxo;
-- aceitar temporariamente itens pendentes até o `run` existir;
-- permitir cadastro prévio somente se a plataforma fornecer o `run_id` antes do burst.
-
-Nenhuma dessas alternativas foi implementada nesta etapa.
+Não exponha `/admin/queues` nem `/admin/runs` via ngrok. Fora do desenvolvimento, desabilite os endpoints administrativos e o Bull Board.
 
 ## Limitações atuais
 
-- callback não implementado;
-- `finished_count` não atualizado durante o processamento;
-- endpoint admin sem autenticação, permitido somente quando a flag local está ativa;
-- Bull Board e endpoint admin não devem ser publicados via ngrok.
+- callback ainda não implementado;
+- `finished_count` ainda não atualizado durante o processamento;
+- o cache de credenciais é volátil e é perdido ao reiniciar o processo;
+- `/admin/runs` não faz parte do fluxo oficial.
