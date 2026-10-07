@@ -54,6 +54,16 @@ export class CallbackWorker extends WorkerHost {
       }
 
       if (error instanceof CallbackHttpError) {
+        if (error.status >= 500 && error.status < 600) {
+          this.logger.error({
+            evento: 'callback.resultado_incerto',
+            runId: job.data.runId,
+            status: error.status,
+          });
+          throw new UnrecoverableError(
+            'Resultado do callback incerto após resposta HTTP 5xx',
+          );
+        }
         if (error.status >= 400 && error.status < 500 && error.status !== 429) {
           throw new UnrecoverableError(error.message);
         }

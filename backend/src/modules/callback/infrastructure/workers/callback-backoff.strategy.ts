@@ -5,7 +5,7 @@ import {
 } from '../queues/callback-queue.constants.js';
 
 export function callbackBackoffStrategy(
-  attemptsMade: number,
+  _attemptsMade: number,
   type?: string,
   error?: Error,
 ): number {
@@ -18,10 +18,6 @@ export function callbackBackoffStrategy(
 
   if (error.status === 429) {
     return (error.retryAfterSeconds ?? CALLBACK_JOB_BACKOFF_MS / 1_000) * 1_000;
-  }
-
-  if (error.status >= 500) {
-    return CALLBACK_JOB_BACKOFF_MS * 2 ** (attemptsMade - 1);
   }
 
   return -1;
