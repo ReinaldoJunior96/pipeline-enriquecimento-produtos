@@ -43,6 +43,37 @@ describe('HttpEnrichmentClient', () => {
     );
   });
 
+  it('deve usar as credenciais em memória associadas à run', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ sku: 'sku-dinamico', price: 19.9, stock: 2 }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    const cliente = new HttpEnrichmentClient({
+      ...config,
+      credenciaisPorRun: {
+        obter: (runId: string) =>
+          runId === 'run-dinamica'
+            ? { cid: 'cid-dinamico', token: 'token-dinamico' }
+            : undefined,
+      },
+    } as never);
+
+    await cliente.enrich({ sku: 'sku-dinamico', runId: 'run-dinamica' } as never);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://plataforma.test/enrich/sku-dinamico',
+      {
+        method: 'GET',
+        headers: {
+          'x-cid': 'cid-dinamico',
+          'x-token': 'token-dinamico',
+        },
+      },
+    );
+  });
+
   it('deve mapear HTTP 429 preservando o Retry-After', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(null, {
