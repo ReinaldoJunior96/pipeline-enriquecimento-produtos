@@ -72,4 +72,59 @@ describe('Receber item para processamento', () => {
     expect(fila.itens).toEqual([item]);
     expect(filaDeEspera.itens).toHaveLength(0);
   });
+
+  it('deve reenfileirar um item PENDING quando a entrega duplicada chega', async () => {
+    const { fila, receberItem } = await criarCenario(true);
+
+    await receberItem.execute(item);
+    await receberItem.execute(item);
+
+    expect(fila.itens).toEqual([item, item]);
+  });
+
+  it('deve deixar o item PENDING quando o enqueue falha e recuperá-lo na repetição', async () => {
+    const { repositorio, fila, receberItem } = await criarCenario(true);
+    vi.spyOn(fila, 'enqueue').mockRejectedValueOnce(new Error('Redis indisponível'));
+
+    await expect(receberItem.execute(item)).rejects.toThrow('Redis indisponível');
+    await expect(
+      repositorio.findByRunIdAndSeq(item.runId, item.seq),
+    ).resolves.toMatchObject({ status: 'PENDING' });
+
+    await receberItem.execute(item);
+
+    expect(fila.enqueue).toHaveBeenCalledTimes(2);
+  });
+
+  it('não deve reenfileirar item PROCESSING, SUCCESS ou ERROR', async () => {
+    const { repositorio, fila, receberItem } = await criarCenario(true);
+    const processing = { ...item, seq: 1 };
+    const success = { ...item, seq: 2 };
+    const error = { ...item, seq: 3 };
+
+    await repositorio.registerIfNew(processing);
+    await repositorio.markProcessing(processing.runId, processing.seq);
+    await repositorio.registerIfNew(success);
+    await repositorio.markProcessing(success.runId, success.seq);
+    await repositorio.markSuccess({
+      runId: success.runId,
+      seq: success.seq,
+      price: 1,
+      stock: 1,
+    });
+    await repositorio.registerIfNew(error);
+    await repositorio.markProcessing(error.runId, error.seq);
+    await repositorio.markError({
+      runId: error.runId,
+      seq: error.seq,
+      errorCode: 'SKU_NOT_FOUND',
+      errorMessage: 'SKU não encontrado',
+    });
+
+    await receberItem.execute(processing);
+    await receberItem.execute(success);
+    await receberItem.execute(error);
+
+    expect(fila.itens).toEqual([]);
+  });
 });
