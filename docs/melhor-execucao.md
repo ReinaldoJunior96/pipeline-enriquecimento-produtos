@@ -23,6 +23,6 @@ Foram feitas 100 chamadas sequenciais ao endpoint `/process`, usando app Nest, r
 
 | Amostras |  Mínimo |   Média |     p95 |   Máximo | Limite |
 | -------: | ------: | ------: | ------: | -------: | -----: |
-|      100 | 0,51 ms | 1,04 ms | 1,62 ms | 23,29 ms | 600 ms |
+|      100 | 0,46 ms | 0,96 ms | 1,35 ms | 22,05 ms | 600 ms |
 
 Resultado: máximo abaixo do limite na medição local. Isso não estima latência de produção nem inclui I/O de banco ou Redis.
