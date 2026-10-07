@@ -33,7 +33,7 @@ O exemplo usa `ENRICHMENT_MODE=fake` para permitir iniciar e explorar a API sem 
 Principais configurações:
 
 ```env
-PLATAFORMA_REGISTER_URL=<url-de-registro-da-plataforma>
+PLATAFORMA_REGISTER_URL=<url-de-registro-da-plataforma>/register
 PLATAFORMA_BASE_URL=<url-base-da-plataforma>
 ENRICHMENT_MODE=http
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pipeline_enriquecimento
