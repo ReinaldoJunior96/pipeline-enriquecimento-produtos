@@ -17,4 +17,5 @@ export interface Run extends CreateRunInput {
 
 export interface RunRepository {
   create(input: CreateRunInput): Promise<Run>;
+  exists(runId: string): Promise<boolean>;
 }

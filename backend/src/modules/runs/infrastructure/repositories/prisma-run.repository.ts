@@ -12,6 +12,15 @@ import {
 export class PrismaRunRepository implements RunRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async exists(runId: string): Promise<boolean> {
+    const run = await this.prisma.run.findUnique({
+      where: { runId },
+      select: { runId: true },
+    });
+
+    return run !== null;
+  }
+
   async create(input: CreateRunInput): Promise<Run> {
     try {
       return await this.prisma.run.create({ data: input });

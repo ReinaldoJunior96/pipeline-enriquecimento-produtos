@@ -8,6 +8,10 @@ import { RunAlreadyExistsError } from '../../src/modules/runs/domain/errors/run-
 export class FakeRunRepository implements RunRepository {
   readonly runs: Run[] = [];
 
+  async exists(runId: string): Promise<boolean> {
+    return this.runs.some((run) => run.runId === runId);
+  }
+
   async create(input: CreateRunInput): Promise<Run> {
     if (this.runs.some(({ runId }) => runId === input.runId)) {
       throw new RunAlreadyExistsError(input.runId);
