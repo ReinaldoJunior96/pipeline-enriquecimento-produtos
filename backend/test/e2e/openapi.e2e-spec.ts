@@ -65,7 +65,6 @@ describe('Documentação OpenAPI (e2e)', () => {
       expect.arrayContaining([
         '/health',
         '/platform/register',
-        '/check',
         '/runs/burst',
         '/process',
       ]),
@@ -97,7 +96,7 @@ describe('Documentação OpenAPI (e2e)', () => {
     expect(caminhos['/platform/register'].post.tags).toEqual([
       'Plataforma Externa',
     ]);
-    expect(caminhos['/check'].post.tags).toEqual(['Plataforma Externa']);
+    expect(caminhos['/check']).toBeUndefined();
     expect(caminhos['/runs/burst'].post).toEqual(
       expect.objectContaining({
         tags: ['Lotes'],

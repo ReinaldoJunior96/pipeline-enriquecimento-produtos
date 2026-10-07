@@ -120,6 +120,59 @@ describe('HttpPlataformaExternaClient', () => {
     }
   });
 
+  it('deve aceitar HTTP 201 e usar o cid enviado quando a resposta não o repetir', async () => {
+    const servidor = await iniciarServidor({
+      status: 201,
+      corpo: {
+        run_id: 'run_sem_cid',
+        total: 4,
+        started_at: '2026-10-07T13:20:54.872Z',
+      },
+    });
+
+    try {
+      const cliente = new HttpPlataformaExternaClient({
+        registerUrl: `${servidor.baseUrl}/register`,
+        baseUrl: servidor.baseUrl,
+      });
+
+      await expect(
+        cliente.criarLote({ cid: 'cid_solicitado', token: 'token_fake' }),
+      ).resolves.toEqual({
+        runId: 'run_sem_cid',
+        cid: 'cid_solicitado',
+        total: 4,
+        startedAt: new Date('2026-10-07T13:20:54.872Z'),
+      });
+    } finally {
+      await fecharServidor(servidor.servidor);
+    }
+  });
+
+  it('deve aceitar resposta sem cid quando o status for HTTP 200', async () => {
+    const servidor = await iniciarServidor({
+      status: 200,
+      corpo: {
+        run_id: 'run_sem_cid_200',
+        total: 1,
+        started_at: '2026-10-07T13:20:54.872Z',
+      },
+    });
+
+    try {
+      const cliente = new HttpPlataformaExternaClient({
+        registerUrl: `${servidor.baseUrl}/register`,
+        baseUrl: servidor.baseUrl,
+      });
+
+      await expect(
+        cliente.criarLote({ cid: 'cid_solicitado', token: 'token_fake' }),
+      ).resolves.toMatchObject({ cid: 'cid_solicitado', runId: 'run_sem_cid_200' });
+    } finally {
+      await fecharServidor(servidor.servidor);
+    }
+  });
+
   it('deve classificar 400 e 422 como erros de validação externa', async () => {
     const servidor = await iniciarServidor({
       status: 422,
