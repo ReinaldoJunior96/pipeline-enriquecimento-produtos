@@ -18,6 +18,11 @@ export class ProcessarItemAguardandoRunUseCase {
 
   async execute(input: PendingRunInput, tentativa: number): Promise<void> {
     if (!(await this.lotes.exists(input.runId))) {
+      this.logger.warn({
+        evento: 'process.run_ausente',
+        ...input,
+        tentativa,
+      });
       throw new RunNotAvailableError(input.runId);
     }
 
