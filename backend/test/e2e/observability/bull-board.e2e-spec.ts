@@ -51,6 +51,10 @@ describe('Bull Board (e2e)', () => {
             name: 'processing',
             readOnlyMode: true,
           }),
+          expect.objectContaining({
+            name: 'process-ingress',
+            readOnlyMode: true,
+          }),
         ]),
       );
     } finally {
