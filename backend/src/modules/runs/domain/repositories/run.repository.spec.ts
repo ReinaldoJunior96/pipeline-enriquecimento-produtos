@@ -25,4 +25,23 @@ describe('Contrato do repositório de lotes', () => {
       updatedAt: expect.any(Date),
     });
   });
+
+  it('deve informar quando um lote existe', async () => {
+    const repositorio = new FakeRunRepository();
+
+    await repositorio.create({
+      runId: 'run_existente',
+      cid: 'cid_teste',
+      total: 1,
+      startedAt: new Date('2026-10-07T12:00:00.000Z'),
+    });
+
+    await expect(repositorio.exists('run_existente')).resolves.toBe(true);
+  });
+
+  it('deve informar quando um lote não existe', async () => {
+    const repositorio = new FakeRunRepository();
+
+    await expect(repositorio.exists('run_inexistente')).resolves.toBe(false);
+  });
 });

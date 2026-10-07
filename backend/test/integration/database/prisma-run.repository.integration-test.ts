@@ -46,4 +46,16 @@ describe('PrismaRunRepository', () => {
       updatedAt: expect.any(Date),
     });
   });
+
+  it('deve consultar a existência do lote', async () => {
+    await repositorio.create({
+      runId,
+      cid: 'cid_teste',
+      total: 1,
+      startedAt: new Date('2026-10-07T12:00:00.000Z'),
+    });
+
+    await expect(repositorio.exists(runId)).resolves.toBe(true);
+    await expect(repositorio.exists('run_inexistente')).resolves.toBe(false);
+  });
 });
