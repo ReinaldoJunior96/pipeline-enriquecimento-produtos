@@ -24,6 +24,21 @@ describe('Provider do cliente de enriquecimento', () => {
     ).toBeInstanceOf(HttpEnrichmentClient);
   });
 
+  it('deve permitir credenciais dinâmicas sem CID/token estáticos', () => {
+    const credenciais = { obter: vi.fn() };
+
+    expect(
+      criarEnrichmentClient(
+        desenvolvimento,
+        {
+          ENRICHMENT_MODE: 'http',
+          PLATAFORMA_BASE_URL: 'https://plataforma.test',
+        },
+        credenciais,
+      ),
+    ).toBeInstanceOf(HttpEnrichmentClient);
+  });
+
   it('deve rejeitar configuração HTTP incompleta sem revelar credenciais', () => {
     expect(() =>
       criarEnrichmentClient(desenvolvimento, {
