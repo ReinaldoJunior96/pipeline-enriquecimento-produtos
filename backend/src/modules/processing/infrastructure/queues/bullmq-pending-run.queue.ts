@@ -24,7 +24,6 @@ export class BullMqPendingRunQueue implements PendingRunQueue {
       jobId: `wait-${input.runId}-${input.seq}`,
       attempts: PENDING_RUN_JOB_ATTEMPTS,
       backoff: { type: 'fixed', delay: PENDING_RUN_JOB_BACKOFF_MS },
-      removeOnComplete: true,
     });
   }
 }

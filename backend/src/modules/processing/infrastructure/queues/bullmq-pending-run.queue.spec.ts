@@ -19,7 +19,6 @@ describe('BullMqPendingRunQueue', () => {
       jobId: 'wait-run_queue_test-1',
       attempts: 10,
       backoff: { type: 'fixed', delay: 500 },
-      removeOnComplete: true,
     });
   });
 });
