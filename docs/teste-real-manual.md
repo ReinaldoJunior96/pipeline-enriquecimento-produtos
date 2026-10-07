@@ -13,7 +13,7 @@ ENRICHMENT_MODE=http
 ADMIN_TEST_ENDPOINTS_ENABLED=true
 ```
 
-O CID e o token atuais não precisam ficar no `.env`: o Swagger retorna as credenciais do registro e você as copia para o burst. Após a resposta do burst, o backend mantém CID/token em memória, associados ao `runId`, por até 24 horas para autenticar os enrichments. Eles não são gravados no PostgreSQL nem em logs; reiniciar o backend apaga esse cache.
+O CID e o token atuais não precisam ficar no `.env`: o Swagger retorna as credenciais do registro e você as copia para o burst. Após persistir a run, o backend mantém CID/token no Redis associados ao `runId`, pelo TTL configurado em `PLATFORM_AUTH_TTL_SECONDS` (padrão de 30 minutos). Eles não são gravados no PostgreSQL nem em logs.
 
 ## Fluxo
 

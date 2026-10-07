@@ -24,7 +24,7 @@ POST <webhook>/check
 
 O endpoint `/check` devolve o token recebido sem alteração. Em caso de sucesso, `/platform/register` retorna `cid` e `token` para o operador copiar e usar no `POST /runs/burst`.
 
-O token não é persistido nem logado. Depois do burst, fica somente em memória associado ao `runId` para o processamento de enrich.
+O token não é persistido nem logado. Depois que a run é persistida, CID/token ficam no Redis associados ao `runId`, com TTL configurável (`PLATFORM_AUTH_TTL_SECONDS`, padrão de 1800 segundos), para o processamento de enrich.
 
 Resposta:
 

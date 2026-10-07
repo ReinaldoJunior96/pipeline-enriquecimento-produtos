@@ -57,7 +57,7 @@ Cada nova chamada ao `/burst/:cid` gera uma nova execução e, consequentemente,
 
 Após validar a resposta externa do `/burst/:cid`, o backend persiste os dados da execução antes de responder `201` ao cliente. Portanto, uma resposta de sucesso de `POST /runs/burst` significa que a run já foi criada internamente.
 
-O token é usado apenas para a chamada externa e fica associado ao `runId` em memória por até 24 horas para autenticar o enrich. Ele não é persistido nem registrado em logs. O cache é perdido ao reiniciar o backend.
+O token é usado apenas para a chamada externa e fica associado ao `runId` no Redis pelo TTL configurado em `PLATFORM_AUTH_TTL_SECONDS` (padrão de 30 minutos) para autenticar o enrich. Ele não é persistido no PostgreSQL nem registrado em logs.
 
 O objetivo dessa persistência é manter o controle do ciclo de vida do lote durante todo o processamento.
 
