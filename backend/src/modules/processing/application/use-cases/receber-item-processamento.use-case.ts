@@ -33,7 +33,11 @@ export class ReceberItemProcessamentoUseCase {
     const item: ProcessItemInput = input;
 
     if (!(await this.lotes.exists(item.runId))) {
-      this.logger.warn({ evento: 'process.run_ausente', ...item, tentativa: 1 });
+      this.logger.warn({
+        evento: 'process.run_ausente',
+        ...item,
+        tentativa: 1,
+      });
       await this.filaDeEspera.enqueue(item);
       this.logger.log({
         evento: 'process.aguardando_run',

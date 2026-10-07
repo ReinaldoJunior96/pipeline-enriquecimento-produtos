@@ -6,9 +6,7 @@ import { PendingRunInput } from '../queues/pending-run.queue.js';
 import { ProcessingQueue } from '../queues/processing.queue.js';
 
 export class ProcessarItemAguardandoRunUseCase {
-  private readonly logger = new Logger(
-    ProcessarItemAguardandoRunUseCase.name,
-  );
+  private readonly logger = new Logger(ProcessarItemAguardandoRunUseCase.name);
 
   constructor(
     private readonly lotes: RunRepository,

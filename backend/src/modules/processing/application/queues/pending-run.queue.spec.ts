@@ -1,7 +1,4 @@
-import {
-  PendingRunInput,
-  PendingRunQueue,
-} from './pending-run.queue.js';
+import { PendingRunInput, PendingRunQueue } from './pending-run.queue.js';
 
 class FakePendingRunQueue implements PendingRunQueue {
   readonly itens: PendingRunInput[] = [];

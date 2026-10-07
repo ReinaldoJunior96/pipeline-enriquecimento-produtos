@@ -10,7 +10,9 @@ describe('PendingRunWorker', () => {
     const executar = vi
       .fn()
       .mockRejectedValue(new RunNotAvailableError(item.runId));
-    const casoDeUso = { execute: executar } as unknown as ProcessarItemAguardandoRunUseCase;
+    const casoDeUso = {
+      execute: executar,
+    } as unknown as ProcessarItemAguardandoRunUseCase;
     const worker = new PendingRunWorker(casoDeUso);
     const logarErro = vi
       .spyOn(Logger.prototype, 'error')

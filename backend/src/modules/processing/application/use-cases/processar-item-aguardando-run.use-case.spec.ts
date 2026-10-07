@@ -12,11 +12,7 @@ describe('Processar item aguardando lote', () => {
     const lotes = new FakeRunRepository();
     const itens = new FakeProcessItemRepository();
     const fila = new FakeProcessingQueue();
-    const casoDeUso = new ProcessarItemAguardandoRunUseCase(
-      lotes,
-      itens,
-      fila,
-    );
+    const casoDeUso = new ProcessarItemAguardandoRunUseCase(lotes, itens, fila);
     await lotes.create({
       runId: item.runId,
       cid: 'cid_teste',
@@ -34,11 +30,7 @@ describe('Processar item aguardando lote', () => {
     const lotes = new FakeRunRepository();
     const itens = new FakeProcessItemRepository();
     const fila = new FakeProcessingQueue();
-    const casoDeUso = new ProcessarItemAguardandoRunUseCase(
-      lotes,
-      itens,
-      fila,
-    );
+    const casoDeUso = new ProcessarItemAguardandoRunUseCase(lotes, itens, fila);
 
     await expect(casoDeUso.execute(item, 1)).rejects.toBeInstanceOf(
       RunNotAvailableError,
@@ -74,11 +66,7 @@ describe('Processar item aguardando lote', () => {
     const lotes = new FakeRunRepository();
     const itens = new FakeProcessItemRepository();
     const fila = new FakeProcessingQueue();
-    const casoDeUso = new ProcessarItemAguardandoRunUseCase(
-      lotes,
-      itens,
-      fila,
-    );
+    const casoDeUso = new ProcessarItemAguardandoRunUseCase(lotes, itens, fila);
     await lotes.create({
       runId: item.runId,
       cid: 'cid_teste',
