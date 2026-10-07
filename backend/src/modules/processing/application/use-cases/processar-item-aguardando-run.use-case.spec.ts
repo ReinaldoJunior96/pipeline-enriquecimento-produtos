@@ -80,4 +80,69 @@ describe('Processar item aguardando lote', () => {
     expect(itens.itens).toEqual([item]);
     expect(fila.itens).toEqual([item]);
   });
+
+  it('deve reenfileirar item PENDING preexistente sem duplicá-lo', async () => {
+    const lotes = new FakeRunRepository();
+    const itens = new FakeProcessItemRepository();
+    const fila = new FakeProcessingQueue();
+    const casoDeUso = new ProcessarItemAguardandoRunUseCase(lotes, itens, fila);
+    await lotes.create({
+      runId: item.runId,
+      cid: 'cid_teste',
+      total: 1,
+      startedAt: new Date('2026-10-07T12:00:00.000Z'),
+    });
+    await itens.registerIfNew(item);
+
+    await casoDeUso.execute(item, 2);
+
+    expect(itens.itens).toEqual([item]);
+    expect(fila.itens).toEqual([item]);
+  });
+
+  it.each(['PROCESSING', 'SUCCESS', 'ERROR'] as const)(
+    'não deve reenfileirar um item existente em estado %s',
+    async (status) => {
+      const lotes = new FakeRunRepository();
+      const itens = new FakeProcessItemRepository();
+      const fila = new FakeProcessingQueue();
+      const casoDeUso = new ProcessarItemAguardandoRunUseCase(
+        lotes,
+        itens,
+        fila,
+      );
+      await lotes.create({
+        runId: item.runId,
+        cid: 'cid_teste',
+        total: 1,
+        startedAt: new Date('2026-10-07T12:00:00.000Z'),
+      });
+      await itens.registerIfNew(item);
+
+      if (status !== 'PENDING') {
+        await itens.markProcessing(item.runId, item.seq);
+      }
+      if (status === 'SUCCESS') {
+        await itens.markSuccess({
+          runId: item.runId,
+          seq: item.seq,
+          price: 12.5,
+          stock: 4,
+        });
+      }
+      if (status === 'ERROR') {
+        await itens.markError({
+          runId: item.runId,
+          seq: item.seq,
+          errorCode: 'SKU_NOT_FOUND',
+          errorMessage: 'SKU não encontrado',
+        });
+      }
+
+      await casoDeUso.execute(item, 2);
+
+      expect(fila.itens).toHaveLength(0);
+      expect(itens.itens).toEqual([item]);
+    },
+  );
 });
