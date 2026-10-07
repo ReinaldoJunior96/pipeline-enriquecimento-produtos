@@ -4,6 +4,42 @@ import { RunAlreadyExistsError } from '../../domain/errors/run-already-exists.er
 import { CriarLoteUseCase } from './criar-lote.use-case.js';
 
 describe('Criar lote', () => {
+  it('deve persistir a run antes de salvar a autenticação efêmera', async () => {
+    const eventos: string[] = [];
+    const cliente = new FakePlataformaExternaClient({
+      runId: 'run_auth_context',
+      cid: 'cid_auth_context',
+      total: 1,
+      startedAt: new Date('2026-10-07T13:20:54.872Z'),
+    });
+    const repositorio = {
+      create: vi.fn(async (input) => {
+        eventos.push('run.persistida');
+        return new FakeRunRepository().create(input);
+      }),
+      exists: vi.fn(),
+    };
+    const authContext = {
+      saveForRun: vi.fn(async (input) => {
+        eventos.push('auth.salva');
+        expect(input).toEqual({
+          runId: 'run_auth_context',
+          cid: 'cid_auth_context',
+          token: 'token_teste',
+        });
+      }),
+    };
+    const criarLote = new CriarLoteUseCase(
+      cliente,
+      repositorio,
+      authContext as never,
+    );
+
+    await criarLote.execute({ cid: 'cid_auth_context', token: 'token_teste' });
+
+    expect(eventos).toEqual(['run.persistida', 'auth.salva']);
+  });
+
   it('deve solicitar a criação externa e persistir o lote', async () => {
     const startedAt = new Date('2026-10-05T20:00:00.000Z');
     const cliente = new FakePlataformaExternaClient({
