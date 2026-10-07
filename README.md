@@ -28,13 +28,13 @@ Crie o arquivo:
 cp backend/.env.example backend/.env
 ```
 
-Preencha as variáveis necessárias em `backend/.env`.
+O exemplo usa `ENRICHMENT_MODE=fake` para permitir iniciar e explorar a API sem a plataforma externa. Para executar o fluxo real, configure em `backend/.env` as URLs abaixo e altere `ENRICHMENT_MODE` para `http`:
 
 Principais configurações:
 
 ```env
-PLATAFORMA_REGISTER_URL=
-PLATAFORMA_BASE_URL=
+PLATAFORMA_REGISTER_URL=<url-de-registro-da-plataforma>
+PLATAFORMA_BASE_URL=<url-base-da-plataforma>
 ENRICHMENT_MODE=http
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pipeline_enriquecimento
 PLATFORM_AUTH_TTL_SECONDS=300
@@ -45,6 +45,8 @@ PLATFORM_AUTH_TTL_SECONDS=300
 ```bash
 docker compose up -d --build
 ```
+
+O Compose inicia PostgreSQL e Redis; o container do backend aplica as migrations do Prisma antes de iniciar a API. Não é necessário criar as tabelas manualmente.
 
 Verifique os serviços:
 
