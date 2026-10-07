@@ -6,6 +6,7 @@ import { AppController } from '../../src/app.controller.js';
 import { AppModule } from '../../src/app.module.js';
 import { AppService } from '../../src/app.service.js';
 import { WebhookModule } from '../../src/modules/webhook/webhook.module.js';
+import { configurarSwagger } from '../../src/infrastructure/openapi/swagger.js';
 
 export async function criarAplicacaoDeTeste(): Promise<INestApplication<App>> {
   const modulo: TestingModule = await Test.createTestingModule({
@@ -33,6 +34,7 @@ export async function criarAplicacaoCompletaDeTeste(): Promise<
     imports: [AppModule],
   }).compile();
   const aplicacao = modulo.createNestApplication();
+  configurarSwagger(aplicacao);
   await aplicacao.init();
   return aplicacao;
 }
