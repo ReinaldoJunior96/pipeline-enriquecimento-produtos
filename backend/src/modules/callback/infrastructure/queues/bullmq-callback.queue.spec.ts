@@ -18,9 +18,9 @@ describe('BullMqCallbackQueue', () => {
 
   it('deve usar o mesmo jobId em chamadas repetidas para deduplicação do BullMQ', async () => {
     const adicionar = vi.fn().mockResolvedValue(undefined);
-    const callbackQueue = new BullMqCallbackQueue(
-      { add: adicionar } as unknown as Queue,
-    );
+    const callbackQueue = new BullMqCallbackQueue({
+      add: adicionar,
+    } as unknown as Queue);
 
     await Promise.all([
       callbackQueue.enqueue('run-duplicada'),

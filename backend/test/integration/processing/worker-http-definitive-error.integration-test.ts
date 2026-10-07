@@ -102,8 +102,14 @@ describe('Erros HTTP definitivos no worker', () => {
     expect(
       servidor.chamadas.filter((chamada) => chamada.sku === sku),
     ).toHaveLength(1);
+    await vi.waitFor(
+      async () => {
+        const job = await fila.getJob(`${runId}-0`);
+        await expect(job?.getState()).resolves.toBe('completed');
+      },
+      { timeout: 3_000, interval: 25 },
+    );
     const job = await fila.getJob(`${runId}-0`);
-    await expect(job?.getState()).resolves.toBe('completed');
     expect(job?.attemptsMade).toBe(1);
   }
 

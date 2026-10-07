@@ -21,4 +21,20 @@ describe('BullMqProcessingQueue', () => {
       backoff: { type: 'processing' },
     });
   });
+
+  it('deve usar jobId determinístico em enqueues repetidos do mesmo item', async () => {
+    const adicionar = vi.fn().mockResolvedValue(undefined);
+    const fila = { add: adicionar } as unknown as Queue;
+    const processingQueue = new BullMqProcessingQueue(fila);
+    const item = { runId: 'run-idempotente', seq: 4, sku: 'sku-004' };
+
+    await processingQueue.enqueue(item);
+    await processingQueue.enqueue(item);
+
+    expect(adicionar).toHaveBeenCalledTimes(2);
+    expect(adicionar.mock.calls.map(([, , opcoes]) => opcoes)).toEqual([
+      expect.objectContaining({ jobId: 'run-idempotente-4' }),
+      expect.objectContaining({ jobId: 'run-idempotente-4' }),
+    ]);
+  });
 });

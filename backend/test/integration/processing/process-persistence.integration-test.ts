@@ -46,7 +46,7 @@ describe('Persistência do endpoint process', () => {
     await app.close();
   });
 
-  it('deve persistir e enfileirar somente a primeira ocorrência do item', async () => {
+  it('deve persistir uma ocorrência e manter um único job idempotente', async () => {
     const payload = { run_id: runId, seq: 0, sku: 'sku-001' };
 
     await request(app.getHttpServer())

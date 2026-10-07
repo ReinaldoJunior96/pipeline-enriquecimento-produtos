@@ -5,6 +5,10 @@ export class FakeProcessingQueue implements ProcessingQueue {
   readonly itens: ProcessItemInput[] = [];
 
   async enqueue(item: ProcessItemInput): Promise<void> {
-    this.itens.push(item);
+    const jaExiste = this.itens.some(
+      (existente) =>
+        existente.runId === item.runId && existente.seq === item.seq,
+    );
+    if (!jaExiste) this.itens.push(item);
   }
 }

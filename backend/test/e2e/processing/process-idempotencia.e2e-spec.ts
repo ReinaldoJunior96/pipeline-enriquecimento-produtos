@@ -38,6 +38,6 @@ describe('Idempotência do processamento (e2e)', () => {
       .expect({ status: 'accepted' });
 
     expect(repositorio.itens).toHaveLength(1);
-    expect(fila.itens).toHaveLength(2);
+    expect(fila.itens).toHaveLength(1);
   });
 });

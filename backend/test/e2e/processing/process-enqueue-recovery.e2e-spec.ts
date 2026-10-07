@@ -30,10 +30,7 @@ describe('Recuperação do enqueue de /process', () => {
       new Error('Redis indisponível'),
     );
 
-    await request(app.getHttpServer())
-      .post('/process')
-      .send(item)
-      .expect(500);
+    await request(app.getHttpServer()).post('/process').send(item).expect(500);
     await expect(
       repositorio.findByRunIdAndSeq(item.run_id, item.seq),
     ).resolves.toMatchObject({ status: 'PENDING' });

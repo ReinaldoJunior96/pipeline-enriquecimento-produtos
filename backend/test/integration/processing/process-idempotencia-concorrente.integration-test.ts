@@ -46,7 +46,7 @@ describe('Idempotência concorrente do endpoint process', () => {
     await app.close();
   });
 
-  it('deve aceitar chamadas simultâneas criando e enfileirando apenas um item', async () => {
+  it('deve aceitar chamadas simultâneas criando um item e um job idempotente', async () => {
     const payload = { run_id: runId, seq: 7, sku: 'sku-007' };
 
     const respostas = await Promise.all([

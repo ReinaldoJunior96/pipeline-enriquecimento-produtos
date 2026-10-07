@@ -29,10 +29,7 @@ describe('Garantir callback da run', () => {
     return {
       runs,
       callbackQueue,
-      garantir: new GarantirCallbackDaRunUseCase(
-        runs as never,
-        callbackQueue,
-      ),
+      garantir: new GarantirCallbackDaRunUseCase(runs as never, callbackQueue),
     };
   }
 
@@ -65,7 +62,9 @@ describe('Garantir callback da run', () => {
 
   it('deve propagar falha de enqueue para permitir retry do job de processamento', async () => {
     const { garantir, callbackQueue } = criarCenario();
-    callbackQueue.enqueue.mockRejectedValueOnce(new Error('Redis indisponível'));
+    callbackQueue.enqueue.mockRejectedValueOnce(
+      new Error('Redis indisponível'),
+    );
 
     await expect(garantir.execute(runId)).rejects.toThrow('Redis indisponível');
   });

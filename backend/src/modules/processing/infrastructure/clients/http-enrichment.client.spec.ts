@@ -132,20 +132,23 @@ describe('HttpEnrichmentClient', () => {
   it.each([
     new TypeError('fetch failed: token secreto'),
     Object.assign(new Error('aborted'), { name: 'AbortError' }),
-  ])('deve converter falha de transporte em erro transitório sem expor detalhes', async (erro) => {
-    vi.spyOn(globalThis, 'fetch').mockRejectedValue(erro);
+  ])(
+    'deve converter falha de transporte em erro transitório sem expor detalhes',
+    async (erro) => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValue(erro);
 
-    await expect(
-      new HttpEnrichmentClient(config).enrich({
-        sku: 'sku-network',
-        runId: 'run-network',
-      }),
-    ).rejects.toMatchObject({
-      code: 'NETWORK_ERROR',
-      transient: true,
-      message: expect.not.stringContaining('token secreto'),
-    });
-  });
+      await expect(
+        new HttpEnrichmentClient(config).enrich({
+          sku: 'sku-network',
+          runId: 'run-network',
+        }),
+      ).rejects.toMatchObject({
+        code: 'NETWORK_ERROR',
+        transient: true,
+        message: expect.not.stringContaining('token secreto'),
+      });
+    },
+  );
 
   it('deve mapear HTTP 401 como erro definitivo de credencial', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(

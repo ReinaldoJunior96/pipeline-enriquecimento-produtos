@@ -69,22 +69,26 @@ describe('Receber item para processamento', () => {
 
     expect(resultado).toEqual({ status: 'accepted' });
     expect(repositorio.itens).toEqual([item]);
-    expect(fila.itens).toEqual([item, item]);
+    expect(fila.itens).toEqual([item]);
     expect(filaDeEspera.itens).toHaveLength(0);
   });
 
   it('deve deixar o item PENDING quando o enqueue falha e recuperá-lo na repetição', async () => {
     const { repositorio, fila, receberItem } = await criarCenario(true);
-    vi.spyOn(fila, 'enqueue').mockRejectedValueOnce(new Error('Redis indisponível'));
+    const enqueue = vi
+      .spyOn(fila, 'enqueue')
+      .mockRejectedValueOnce(new Error('Redis indisponível'));
 
-    await expect(receberItem.execute(item)).rejects.toThrow('Redis indisponível');
+    await expect(receberItem.execute(item)).rejects.toThrow(
+      'Redis indisponível',
+    );
     await expect(
       repositorio.findByRunIdAndSeq(item.runId, item.seq),
     ).resolves.toMatchObject({ status: 'PENDING' });
 
     await receberItem.execute(item);
 
-    expect(fila.enqueue).toHaveBeenCalledTimes(2);
+    expect(enqueue).toHaveBeenCalledTimes(2);
   });
 
   it('não deve reenfileirar item PROCESSING, SUCCESS ou ERROR', async () => {
