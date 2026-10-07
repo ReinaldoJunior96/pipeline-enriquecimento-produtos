@@ -32,7 +32,6 @@ Execute em `backend/`:
 npm test
 npm run test:e2e
 npm run test:integracao:banco
-npm run test:integracao:autenticacao
 npm run benchmark:ack
 npm run build
 npm run lint
@@ -40,6 +39,8 @@ npx prettier --check "src/**/*.ts" "test/**/*.ts"
 ```
 
 As suítes de integração que usam filas Redis compartilhadas devem ser executadas somente com Redis de teste isolado; algumas removem jobs da fila ao preparar e limpar o cenário. O benchmark é local e usa app, filas e repositórios fake: não mede produção.
+
+`npm run test:integracao:autenticacao` chama `PLATAFORMA_REGISTER_URL` real e cria um registro na plataforma. Execute-o manualmente apenas quando quiser validar essa integração, fornecendo `WEBHOOK_PUBLIC_URL` e `NOME_REGISTRO` no ambiente temporário do comando; essas variáveis não são necessárias no fluxo via Swagger e não devem ser adicionadas ao `.env` principal.
 
 ## Documentação
 
