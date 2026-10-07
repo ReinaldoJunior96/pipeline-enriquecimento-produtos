@@ -6,6 +6,10 @@ import request from 'supertest';
 import { App } from 'supertest/types.js';
 import { AppModule } from '../../../src/app.module.js';
 import { PrismaService } from '../../../src/infrastructure/database/prisma.service.js';
+import {
+  PLATFORM_AUTH_CONTEXT_STORE,
+  PlatformAuthContextStore,
+} from '../../../src/modules/platform-auth/application/contracts/platform-auth-context.store.js';
 import { ProcessItemInput } from '../../../src/modules/processing/domain/repositories/process-item.repository.js';
 import { PROCESSING_QUEUE_NAME } from '../../../src/modules/processing/infrastructure/queues/processing-queue.constants.js';
 import { ServidorEnriquecimentoHttpDeTeste } from '../../support/servidor-enriquecimento-http-de-teste.js';
@@ -16,12 +20,11 @@ describe('Erros HTTP definitivos no worker', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let fila: Queue<ProcessItemInput>;
+  let authContext: PlatformAuthContextStore;
 
   beforeAll(async () => {
     process.env.ENRICHMENT_MODE = 'http';
     process.env.PLATAFORMA_BASE_URL = await servidor.iniciar();
-    process.env.PLATAFORMA_CID = 'cid-http-definitive';
-    process.env.PLATAFORMA_TOKEN = 'token-http-definitive';
     const modulo = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -30,6 +33,7 @@ describe('Erros HTTP definitivos no worker', () => {
     app = modulo.createNestApplication();
     await app.init();
     prisma = app.get(PrismaService);
+    authContext = app.get(PLATFORM_AUTH_CONTEXT_STORE);
   });
 
   afterEach(async () => {
@@ -39,6 +43,9 @@ describe('Erros HTTP definitivos no worker', () => {
     await prisma.run.deleteMany({
       where: { runId: { startsWith: prefixoRunId } },
     });
+    for (const runId of [`${prefixoRunId}_401`, `${prefixoRunId}_404`]) {
+      await authContext.deleteForRun(runId);
+    }
     await fila.obliterate({ force: true });
   });
 
@@ -47,8 +54,6 @@ describe('Erros HTTP definitivos no worker', () => {
     await servidor.encerrar();
     delete process.env.ENRICHMENT_MODE;
     delete process.env.PLATAFORMA_BASE_URL;
-    delete process.env.PLATAFORMA_CID;
-    delete process.env.PLATAFORMA_TOKEN;
   });
 
   async function validarErroDefinitivo(
@@ -64,6 +69,11 @@ describe('Erros HTTP definitivos no worker', () => {
         total: 1,
         startedAt: new Date('2026-10-06T12:00:00.000Z'),
       },
+    });
+    await authContext.saveForRun({
+      runId,
+      cid: 'cid-http-definitive',
+      token: 'token-http-definitive',
     });
     servidor.responderEmSequencia(sku, [{ status: statusHttp }]);
 

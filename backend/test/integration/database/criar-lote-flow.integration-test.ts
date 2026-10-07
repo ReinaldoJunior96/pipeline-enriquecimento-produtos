@@ -1,5 +1,6 @@
 import { PrismaService } from '../../../src/infrastructure/database/prisma.service.js';
 import { CriarLoteUseCase } from '../../../src/modules/runs/application/use-cases/criar-lote.use-case.js';
+import { FakePlatformAuthContextStore } from '../../fakes/fake-platform-auth-context.store.js';
 import { PrismaRunRepository } from '../../../src/modules/runs/infrastructure/repositories/prisma-run.repository.js';
 import { FakePlataformaExternaClient } from '../../fakes/fake-plataforma-externa.client.js';
 
@@ -28,7 +29,11 @@ describe('Fluxo mockado de criação de lote', () => {
       startedAt,
     });
     const repositorio = new PrismaRunRepository(prisma);
-    const criarLote = new CriarLoteUseCase(cliente, repositorio);
+    const criarLote = new CriarLoteUseCase(
+      cliente,
+      repositorio,
+      new FakePlatformAuthContextStore(),
+    );
 
     const lote = await criarLote.execute({
       cid: 'cid_teste',

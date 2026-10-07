@@ -2,12 +2,18 @@ import { Module } from '@nestjs/common';
 import { PlataformaExternaModule } from '../../infrastructure/platform/plataforma-externa.module.js';
 import { PrismaModule } from '../../infrastructure/database/prisma.module.js';
 import { PlatformCredentialsModule } from '../../infrastructure/platform-credentials/platform-credentials.module.js';
-import { PLATAFORMA_EXTERNA_CLIENT, PlataformaExternaClient } from './application/contracts/plataforma-externa.client.js';
+import {
+  PLATAFORMA_EXTERNA_CLIENT,
+  PlataformaExternaClient,
+} from './application/contracts/plataforma-externa.client.js';
 import { CriarLoteUseCase } from './application/use-cases/criar-lote.use-case.js';
 import { RunRepository } from './domain/repositories/run.repository.js';
 import { PrismaRunRepository } from './infrastructure/repositories/prisma-run.repository.js';
 import { RunsController } from './runs.controller.js';
-import { CREDENCIAIS_LOTE_STORE, CredenciaisLoteStore } from './application/contracts/credenciais-lote.store.js';
+import {
+  PLATFORM_AUTH_CONTEXT_STORE,
+  PlatformAuthContextStore,
+} from '../platform-auth/application/contracts/platform-auth-context.store.js';
 
 @Module({
   imports: [PrismaModule, PlataformaExternaModule, PlatformCredentialsModule],
@@ -16,12 +22,16 @@ import { CREDENCIAIS_LOTE_STORE, CredenciaisLoteStore } from './application/cont
     PrismaRunRepository,
     {
       provide: CriarLoteUseCase,
-      inject: [PLATAFORMA_EXTERNA_CLIENT, PrismaRunRepository, CREDENCIAIS_LOTE_STORE],
+      inject: [
+        PLATAFORMA_EXTERNA_CLIENT,
+        PrismaRunRepository,
+        PLATFORM_AUTH_CONTEXT_STORE,
+      ],
       useFactory: (
         plataforma: PlataformaExternaClient,
         repositorio: RunRepository,
-        credenciais: CredenciaisLoteStore,
-      ) => new CriarLoteUseCase(plataforma, repositorio, credenciais),
+        authContext: PlatformAuthContextStore,
+      ) => new CriarLoteUseCase(plataforma, repositorio, authContext),
     },
   ],
 })

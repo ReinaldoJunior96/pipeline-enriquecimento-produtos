@@ -24,7 +24,6 @@ import {
 import { BullMqProcessingQueue } from './infrastructure/queues/bullmq-processing.queue.js';
 import { BullMqPendingRunQueue } from './infrastructure/queues/bullmq-pending-run.queue.js';
 import { PENDING_RUN_QUEUE_NAME } from './infrastructure/queues/pending-run-queue.constants.js';
-import { PROCESSING_QUEUE_NAME } from './infrastructure/queues/processing-queue.constants.js';
 import { PrismaProcessItemRepository } from './infrastructure/repositories/prisma-process-item.repository.js';
 import { DevelopmentEnrichmentClient } from './infrastructure/clients/development-enrichment.client.js';
 import { criarEnrichmentClient } from './infrastructure/clients/enrichment-client.provider.js';
@@ -33,13 +32,15 @@ import { PendingRunWorker } from './infrastructure/workers/pending-run.worker.js
 import { ProcessingController } from './processing.controller.js';
 import { RunRepository } from '../runs/domain/repositories/run.repository.js';
 import { PrismaRunRepository } from '../runs/infrastructure/repositories/prisma-run.repository.js';
-import { CREDENCIAIS_LOTE_STORE, CredenciaisLoteStore } from '../runs/application/contracts/credenciais-lote.store.js';
+import {
+  PLATFORM_AUTH_CONTEXT_STORE,
+  PlatformAuthContextStore,
+} from '../platform-auth/application/contracts/platform-auth-context.store.js';
 
 @Module({
   imports: [
     PrismaModule,
     PlatformCredentialsModule,
-    BullModule.registerQueue({ name: PROCESSING_QUEUE_NAME }),
     BullModule.registerQueue({ name: PENDING_RUN_QUEUE_NAME }),
   ],
   controllers: [ProcessingController],
@@ -60,11 +61,11 @@ import { CREDENCIAIS_LOTE_STORE, CredenciaisLoteStore } from '../runs/applicatio
     DevelopmentEnrichmentClient,
     {
       provide: ENRICHMENT_CLIENT,
-      inject: [DevelopmentEnrichmentClient, CREDENCIAIS_LOTE_STORE],
+      inject: [DevelopmentEnrichmentClient, PLATFORM_AUTH_CONTEXT_STORE],
       useFactory: (
         desenvolvimento: DevelopmentEnrichmentClient,
-        credenciais: CredenciaisLoteStore,
-      ) => criarEnrichmentClient(desenvolvimento, process.env, credenciais),
+        authContext: PlatformAuthContextStore,
+      ) => criarEnrichmentClient(desenvolvimento, process.env, authContext),
     },
     {
       provide: ReceberItemProcessamentoUseCase,

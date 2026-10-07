@@ -37,12 +37,12 @@ describe('RedisPlatformAuthContextStore', () => {
     await store.saveForRun({ runId, ...contexto });
 
     await expect(store.getForRun(runId)).resolves.toEqual(contexto);
-    await expect(redis.ttl(`platform:auth:run:${runId}`)).resolves.toBeGreaterThan(
-      0,
-    );
-    await expect(redis.ttl(`platform:auth:run:${runId}`)).resolves.toBeLessThanOrEqual(
-      ttlSeconds,
-    );
+    await expect(
+      redis.ttl(`platform:auth:run:${runId}`),
+    ).resolves.toBeGreaterThan(0);
+    await expect(
+      redis.ttl(`platform:auth:run:${runId}`),
+    ).resolves.toBeLessThanOrEqual(ttlSeconds);
   });
 
   it('deve retornar null para uma run sem autenticação', async () => {
@@ -87,11 +87,11 @@ describe('RedisPlatformAuthContextStore', () => {
   });
 
   it('deve rejeitar TTL que não seja inteiro positivo', () => {
-    expect(() => new RedisPlatformAuthContextStore(connection.client, 0)).toThrow(
-      'PLATFORM_AUTH_TTL_SECONDS deve ser um inteiro maior que zero',
-    );
-    expect(() => new RedisPlatformAuthContextStore(connection.client, 1.5)).toThrow(
-      'PLATFORM_AUTH_TTL_SECONDS deve ser um inteiro maior que zero',
-    );
+    expect(
+      () => new RedisPlatformAuthContextStore(connection.client, 0),
+    ).toThrow('PLATFORM_AUTH_TTL_SECONDS deve ser um inteiro maior que zero');
+    expect(
+      () => new RedisPlatformAuthContextStore(connection.client, 1.5),
+    ).toThrow('PLATFORM_AUTH_TTL_SECONDS deve ser um inteiro maior que zero');
   });
 });

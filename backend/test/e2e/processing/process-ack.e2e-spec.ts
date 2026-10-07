@@ -14,8 +14,11 @@ describe('Tempo de ACK do processamento (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let fila: Queue<ProcessItemInput>;
+  let enrichmentModeAnterior: string | undefined;
 
   beforeAll(async () => {
+    enrichmentModeAnterior = process.env.ENRICHMENT_MODE;
+    process.env.ENRICHMENT_MODE = 'fake';
     app = await criarAplicacaoCompletaDeTeste();
     prisma = app.get(PrismaService);
     fila = app.get(getQueueToken(PROCESSING_QUEUE_NAME));
@@ -41,6 +44,9 @@ describe('Tempo de ACK do processamento (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+    if (enrichmentModeAnterior === undefined)
+      delete process.env.ENRICHMENT_MODE;
+    else process.env.ENRICHMENT_MODE = enrichmentModeAnterior;
   });
 
   it('deve confirmar o recebimento em menos de 600 ms', async () => {

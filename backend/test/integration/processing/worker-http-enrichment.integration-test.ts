@@ -6,6 +6,10 @@ import request from 'supertest';
 import { App } from 'supertest/types.js';
 import { AppModule } from '../../../src/app.module.js';
 import { PrismaService } from '../../../src/infrastructure/database/prisma.service.js';
+import {
+  PLATFORM_AUTH_CONTEXT_STORE,
+  PlatformAuthContextStore,
+} from '../../../src/modules/platform-auth/application/contracts/platform-auth-context.store.js';
 import { ProcessItemInput } from '../../../src/modules/processing/domain/repositories/process-item.repository.js';
 import { PROCESSING_QUEUE_NAME } from '../../../src/modules/processing/infrastructure/queues/processing-queue.constants.js';
 import { ServidorEnriquecimentoHttpDeTeste } from '../../support/servidor-enriquecimento-http-de-teste.js';
@@ -16,6 +20,7 @@ describe('Fluxo integrado com cliente HTTP de enriquecimento', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let fila: Queue<ProcessItemInput>;
+  let authContext: PlatformAuthContextStore;
 
   beforeAll(async () => {
     const baseUrl = await servidor.iniciar();
@@ -27,8 +32,6 @@ describe('Fluxo integrado com cliente HTTP de enriquecimento', () => {
     ]);
     process.env.ENRICHMENT_MODE = 'http';
     process.env.PLATAFORMA_BASE_URL = baseUrl;
-    process.env.PLATAFORMA_CID = 'cid-http-test';
-    process.env.PLATAFORMA_TOKEN = 'token-http-test';
 
     const modulo = await Test.createTestingModule({
       imports: [AppModule],
@@ -38,6 +41,7 @@ describe('Fluxo integrado com cliente HTTP de enriquecimento', () => {
     app = modulo.createNestApplication();
     await app.init();
     prisma = app.get(PrismaService);
+    authContext = app.get(PLATFORM_AUTH_CONTEXT_STORE);
   });
 
   beforeEach(async () => {
@@ -49,10 +53,16 @@ describe('Fluxo integrado com cliente HTTP de enriquecimento', () => {
         startedAt: new Date('2026-10-06T12:00:00.000Z'),
       },
     });
+    await authContext.saveForRun({
+      runId,
+      cid: 'cid-http-test',
+      token: 'token-http-test',
+    });
   });
 
   afterEach(async () => {
     await prisma.runItem.deleteMany({ where: { runId } });
+    await authContext.deleteForRun(runId);
     await prisma.run.deleteMany({ where: { runId } });
     await fila.obliterate({ force: true });
   });
@@ -62,8 +72,6 @@ describe('Fluxo integrado com cliente HTTP de enriquecimento', () => {
     await servidor.encerrar();
     delete process.env.ENRICHMENT_MODE;
     delete process.env.PLATAFORMA_BASE_URL;
-    delete process.env.PLATAFORMA_CID;
-    delete process.env.PLATAFORMA_TOKEN;
   });
 
   it('deve persistir o resultado retornado pelo servidor HTTP', async () => {

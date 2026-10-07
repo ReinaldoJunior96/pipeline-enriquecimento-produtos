@@ -1,7 +1,7 @@
 import { EnrichmentClient } from '../../application/contracts/enrichment.client.js';
 import { DevelopmentEnrichmentClient } from './development-enrichment.client.js';
 import { HttpEnrichmentClient } from './http-enrichment.client.js';
-import { CredenciaisLoteStore } from '../../../runs/application/contracts/credenciais-lote.store.js';
+import { PlatformAuthContextStore } from '../../../platform-auth/application/contracts/platform-auth-context.store.js';
 
 type EnrichmentEnvironment = Record<string, string | undefined>;
 
@@ -16,18 +16,10 @@ function variavelObrigatoria(
   return valor;
 }
 
-function variavelOpcional(
-  ambiente: EnrichmentEnvironment,
-  nome: string,
-): string | undefined {
-  const valor = ambiente[nome]?.trim();
-  return valor || undefined;
-}
-
 export function criarEnrichmentClient(
   desenvolvimento: DevelopmentEnrichmentClient,
   ambiente: EnrichmentEnvironment = process.env,
-  credenciaisPorRun?: Pick<CredenciaisLoteStore, 'obter'>,
+  platformAuthContextStore: Pick<PlatformAuthContextStore, 'getForRun'>,
 ): EnrichmentClient {
   const modo =
     ambiente.ENRICHMENT_MODE ??
@@ -37,17 +29,12 @@ export function criarEnrichmentClient(
   if (modo !== 'http') {
     throw new Error(`ENRICHMENT_MODE inválido: ${modo}`);
   }
-
-  const cid = variavelOpcional(ambiente, 'PLATAFORMA_CID');
-  const token = variavelOpcional(ambiente, 'PLATAFORMA_TOKEN');
-  if (!credenciaisPorRun && (!cid || !token)) {
-    variavelObrigatoria(ambiente, !cid ? 'PLATAFORMA_CID' : 'PLATAFORMA_TOKEN');
+  const baseUrl = variavelObrigatoria(ambiente, 'PLATAFORMA_BASE_URL');
+  if (!platformAuthContextStore) {
+    throw new Error('O contexto efêmero de autenticação não foi configurado');
   }
-
   return new HttpEnrichmentClient({
-    baseUrl: variavelObrigatoria(ambiente, 'PLATAFORMA_BASE_URL'),
-    cid,
-    token,
-    credenciaisPorRun,
+    baseUrl,
+    platformAuthContextStore,
   });
 }

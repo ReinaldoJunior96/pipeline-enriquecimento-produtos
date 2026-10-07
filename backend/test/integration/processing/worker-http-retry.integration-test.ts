@@ -6,6 +6,10 @@ import request from 'supertest';
 import { App } from 'supertest/types.js';
 import { AppModule } from '../../../src/app.module.js';
 import { PrismaService } from '../../../src/infrastructure/database/prisma.service.js';
+import {
+  PLATFORM_AUTH_CONTEXT_STORE,
+  PlatformAuthContextStore,
+} from '../../../src/modules/platform-auth/application/contracts/platform-auth-context.store.js';
 import { ProcessItemInput } from '../../../src/modules/processing/domain/repositories/process-item.repository.js';
 import { PROCESSING_QUEUE_NAME } from '../../../src/modules/processing/infrastructure/queues/processing-queue.constants.js';
 import { ServidorEnriquecimentoHttpDeTeste } from '../../support/servidor-enriquecimento-http-de-teste.js';
@@ -16,12 +20,11 @@ describe('Retry do worker com respostas HTTP', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let fila: Queue<ProcessItemInput>;
+  let authContext: PlatformAuthContextStore;
 
   beforeAll(async () => {
     process.env.ENRICHMENT_MODE = 'http';
     process.env.PLATAFORMA_BASE_URL = await servidor.iniciar();
-    process.env.PLATAFORMA_CID = 'cid-http-retry';
-    process.env.PLATAFORMA_TOKEN = 'token-http-retry';
     const modulo = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -30,6 +33,7 @@ describe('Retry do worker com respostas HTTP', () => {
     app = modulo.createNestApplication();
     await app.init();
     prisma = app.get(PrismaService);
+    authContext = app.get(PLATFORM_AUTH_CONTEXT_STORE);
   });
 
   afterEach(async () => {
@@ -39,6 +43,9 @@ describe('Retry do worker com respostas HTTP', () => {
     await prisma.run.deleteMany({
       where: { runId: { startsWith: prefixoRunId } },
     });
+    // Remove credenciais efêmeras dos casos deste arquivo.
+    for (const runId of [`${prefixoRunId}_500`, `${prefixoRunId}_429`])
+      await authContext.deleteForRun(runId);
     await fila.obliterate({ force: true });
   });
 
@@ -47,8 +54,6 @@ describe('Retry do worker com respostas HTTP', () => {
     await servidor.encerrar();
     delete process.env.ENRICHMENT_MODE;
     delete process.env.PLATAFORMA_BASE_URL;
-    delete process.env.PLATAFORMA_CID;
-    delete process.env.PLATAFORMA_TOKEN;
   });
 
   async function criarRun(runId: string): Promise<void> {
@@ -59,6 +64,11 @@ describe('Retry do worker com respostas HTTP', () => {
         total: 1,
         startedAt: new Date('2026-10-06T12:00:00.000Z'),
       },
+    });
+    await authContext.saveForRun({
+      runId,
+      cid: 'cid-http-retry',
+      token: 'token-http-retry',
     });
   }
 

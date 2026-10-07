@@ -9,15 +9,13 @@ import {
   EnrichmentTransientError,
   EnrichmentUnauthorizedError,
 } from '../../domain/errors/enrichment.errors.js';
-import { CredenciaisLoteStore } from '../../../runs/application/contracts/credenciais-lote.store.js';
+import { PlatformAuthContextStore } from '../../../platform-auth/application/contracts/platform-auth-context.store.js';
 
 const RETRY_AFTER_PADRAO_EM_SEGUNDOS = 1;
 
 export interface HttpEnrichmentClientConfig {
   baseUrl: string;
-  cid?: string;
-  token?: string;
-  credenciaisPorRun?: Pick<CredenciaisLoteStore, 'obter'>;
+  platformAuthContextStore: Pick<PlatformAuthContextStore, 'getForRun'>;
 }
 
 export class HttpEnrichmentClient implements EnrichmentClient {
@@ -25,23 +23,20 @@ export class HttpEnrichmentClient implements EnrichmentClient {
 
   async enrich(input: EnrichmentInput): Promise<EnrichmentResult> {
     const baseUrl = this.config.baseUrl.replace(/\/$/, '');
-    const credenciais = input.runId
-      ? this.config.credenciaisPorRun?.obter(input.runId)
-      : undefined;
-    const cid = credenciais?.cid ?? this.config.cid;
-    const token = credenciais?.token ?? this.config.token;
-    if (!cid || !token) {
-      throw new EnrichmentUnauthorizedError(
-        'Credenciais de plataforma não disponíveis para esta run',
+    const credenciais = await this.config.platformAuthContextStore.getForRun(
+      input.runId,
+    );
+    if (!credenciais)
+      throw new EnrichmentTransientError(
+        `Autenticação temporariamente indisponível para a run ${input.runId}`,
       );
-    }
     const response = await fetch(
       `${baseUrl}/enrich/${encodeURIComponent(input.sku)}`,
       {
         method: 'GET',
         headers: {
-          'x-cid': cid,
-          'x-token': token,
+          'x-cid': credenciais.cid,
+          'x-token': credenciais.token,
         },
       },
     );

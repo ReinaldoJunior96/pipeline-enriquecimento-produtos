@@ -13,20 +13,7 @@ describe('Provider do cliente de enriquecimento', () => {
     ).toBe(desenvolvimento);
   });
 
-  it('deve criar o cliente HTTP com as variáveis da plataforma', () => {
-    expect(
-      criarEnrichmentClient(desenvolvimento, {
-        ENRICHMENT_MODE: 'http',
-        PLATAFORMA_BASE_URL: 'https://plataforma.test',
-        PLATAFORMA_CID: 'cid-test',
-        PLATAFORMA_TOKEN: 'token-test',
-      }),
-    ).toBeInstanceOf(HttpEnrichmentClient);
-  });
-
-  it('deve permitir credenciais dinâmicas sem CID/token estáticos', () => {
-    const credenciais = { obter: vi.fn() };
-
+  it('deve criar o cliente HTTP com URL e store de autenticação por run', () => {
     expect(
       criarEnrichmentClient(
         desenvolvimento,
@@ -34,18 +21,30 @@ describe('Provider do cliente de enriquecimento', () => {
           ENRICHMENT_MODE: 'http',
           PLATAFORMA_BASE_URL: 'https://plataforma.test',
         },
-        credenciais,
+        { getForRun: vi.fn() },
       ),
     ).toBeInstanceOf(HttpEnrichmentClient);
   });
 
-  it('deve rejeitar configuração HTTP incompleta sem revelar credenciais', () => {
+  it('deve aceitar o store efêmero como dependência do cliente HTTP', () => {
+    expect(
+      criarEnrichmentClient(
+        desenvolvimento,
+        {
+          ENRICHMENT_MODE: 'http',
+          PLATAFORMA_BASE_URL: 'https://plataforma.test',
+        },
+        { getForRun: vi.fn() },
+      ),
+    ).toBeInstanceOf(HttpEnrichmentClient);
+  });
+
+  it('deve rejeitar configuração HTTP sem URL da plataforma', () => {
     expect(() =>
       criarEnrichmentClient(desenvolvimento, {
         ENRICHMENT_MODE: 'http',
-        PLATAFORMA_BASE_URL: 'https://plataforma.test',
-        PLATAFORMA_CID: 'cid-test',
+        PLATAFORMA_BASE_URL: '',
       }),
-    ).toThrow('A variável PLATAFORMA_TOKEN não foi configurada');
+    ).toThrow('A variável PLATAFORMA_BASE_URL não foi configurada');
   });
 });

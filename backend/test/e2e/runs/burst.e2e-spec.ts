@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
 import { CriarLoteUseCase } from '../../../src/modules/runs/application/use-cases/criar-lote.use-case.js';
+import { FakePlatformAuthContextStore } from '../../fakes/fake-platform-auth-context.store.js';
 import { RunsController } from '../../../src/modules/runs/runs.controller.js';
 import { FakePlataformaExternaClient } from '../../fakes/fake-plataforma-externa.client.js';
 import { FakeRunRepository } from '../../fakes/fake-run.repository.js';
@@ -25,7 +26,11 @@ describe('Criação de burst pela API (e2e)', () => {
       providers: [
         {
           provide: CriarLoteUseCase,
-          useValue: new CriarLoteUseCase(cliente, repositorio),
+          useValue: new CriarLoteUseCase(
+            cliente,
+            repositorio,
+            new FakePlatformAuthContextStore(),
+          ),
         },
       ],
     }).compile();

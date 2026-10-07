@@ -1,6 +1,6 @@
 export interface EnrichmentInput {
   sku: string;
-  runId?: string;
+  runId: string;
 }
 
 export interface EnrichmentResult {

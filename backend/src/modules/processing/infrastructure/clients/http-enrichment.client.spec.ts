@@ -9,8 +9,9 @@ import { HttpEnrichmentClient } from './http-enrichment.client.js';
 describe('HttpEnrichmentClient', () => {
   const config = {
     baseUrl: 'https://plataforma.test',
-    cid: 'cid-test',
-    token: 'token-test',
+    platformAuthContextStore: {
+      getForRun: vi.fn(async () => ({ cid: 'cid-test', token: 'token-test' })),
+    },
   };
 
   afterEach(() => {
@@ -26,7 +27,9 @@ describe('HttpEnrichmentClient', () => {
     );
     const cliente = new HttpEnrichmentClient(config);
 
-    await expect(cliente.enrich({ sku: 'sku-001' })).resolves.toEqual({
+    await expect(
+      cliente.enrich({ sku: 'sku-001', runId: 'run-001' }),
+    ).resolves.toEqual({
       sku: 'sku-001',
       price: 99.9,
       stock: 12,
@@ -45,22 +48,28 @@ describe('HttpEnrichmentClient', () => {
 
   it('deve usar as credenciais em memória associadas à run', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ sku: 'sku-dinamico', price: 19.9, stock: 2 }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
+      new Response(
+        JSON.stringify({ sku: 'sku-dinamico', price: 19.9, stock: 2 }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      ),
     );
     const cliente = new HttpEnrichmentClient({
       ...config,
-      credenciaisPorRun: {
-        obter: (runId: string) =>
+      platformAuthContextStore: {
+        getForRun: async (runId: string) =>
           runId === 'run-dinamica'
             ? { cid: 'cid-dinamico', token: 'token-dinamico' }
-            : undefined,
+            : null,
       },
-    } as never);
+    });
 
-    await cliente.enrich({ sku: 'sku-dinamico', runId: 'run-dinamica' } as never);
+    await cliente.enrich({
+      sku: 'sku-dinamico',
+      runId: 'run-dinamica',
+    } as never);
 
     expect(fetchMock).toHaveBeenCalledWith(
       'https://plataforma.test/enrich/sku-dinamico',
@@ -74,6 +83,23 @@ describe('HttpEnrichmentClient', () => {
     );
   });
 
+  it('deve falhar de forma transitória sem fazer request quando não há auth para a run', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+    const cliente = new HttpEnrichmentClient({
+      ...config,
+      platformAuthContextStore: { getForRun: vi.fn(async () => null) },
+    });
+
+    await expect(
+      cliente.enrich({ sku: 'sku-sem-auth', runId: 'run-sem-auth' }),
+    ).rejects.toMatchObject({
+      code: 'TRANSIENT_ERROR',
+      transient: true,
+      message: expect.stringContaining('run-sem-auth'),
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('deve mapear HTTP 429 preservando o Retry-After', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(null, {
@@ -83,7 +109,10 @@ describe('HttpEnrichmentClient', () => {
     );
 
     await expect(
-      new HttpEnrichmentClient(config).enrich({ sku: 'sku-429' }),
+      new HttpEnrichmentClient(config).enrich({
+        sku: 'sku-429',
+        runId: 'run-429',
+      }),
     ).rejects.toEqual(new EnrichmentRateLimitError(0.25));
   });
 
@@ -93,7 +122,10 @@ describe('HttpEnrichmentClient', () => {
     );
 
     await expect(
-      new HttpEnrichmentClient(config).enrich({ sku: 'sku-500' }),
+      new HttpEnrichmentClient(config).enrich({
+        sku: 'sku-500',
+        runId: 'run-500',
+      }),
     ).rejects.toBeInstanceOf(EnrichmentTransientError);
   });
 
@@ -103,7 +135,10 @@ describe('HttpEnrichmentClient', () => {
     );
 
     await expect(
-      new HttpEnrichmentClient(config).enrich({ sku: 'sku-401' }),
+      new HttpEnrichmentClient(config).enrich({
+        sku: 'sku-401',
+        runId: 'run-401',
+      }),
     ).rejects.toBeInstanceOf(EnrichmentUnauthorizedError);
   });
 
@@ -113,7 +148,10 @@ describe('HttpEnrichmentClient', () => {
     );
 
     await expect(
-      new HttpEnrichmentClient(config).enrich({ sku: 'sku-404' }),
+      new HttpEnrichmentClient(config).enrich({
+        sku: 'sku-404',
+        runId: 'run-404',
+      }),
     ).rejects.toBeInstanceOf(EnrichmentNotFoundError);
   });
 
@@ -130,7 +168,10 @@ describe('HttpEnrichmentClient', () => {
     );
 
     await expect(
-      new HttpEnrichmentClient(config).enrich({ sku: 'sku-invalid' }),
+      new HttpEnrichmentClient(config).enrich({
+        sku: 'sku-invalid',
+        runId: 'run-invalid',
+      }),
     ).rejects.toBeInstanceOf(EnrichmentTransientError);
   });
 });

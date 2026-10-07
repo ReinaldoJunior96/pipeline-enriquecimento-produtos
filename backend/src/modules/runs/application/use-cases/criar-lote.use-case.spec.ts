@@ -49,7 +49,11 @@ describe('Criar lote', () => {
       startedAt,
     });
     const repositorio = new FakeRunRepository();
-    const criarLote = new CriarLoteUseCase(cliente, repositorio);
+    const criarLote = new CriarLoteUseCase(
+      cliente,
+      repositorio,
+      new FakePlatformAuthContextStore(),
+    );
 
     const lote = await criarLote.execute({
       cid: 'cid_teste',
@@ -84,7 +88,11 @@ describe('Criar lote', () => {
       startedAt: new Date('2026-10-07T13:20:54.872Z'),
     });
     const repositorio = new FakeRunRepository();
-    const criarLote = new CriarLoteUseCase(cliente, repositorio);
+    const criarLote = new CriarLoteUseCase(
+      cliente,
+      repositorio,
+      new FakePlatformAuthContextStore(),
+    );
 
     const lote = await criarLote.execute({
       cid: 'cid_solicitado',
@@ -114,7 +122,9 @@ describe('Criar lote', () => {
       criarLote.execute({ cid: 'cid_teste', token: 'token_teste' }),
     ).rejects.toThrow('falha externa');
     expect(repositorio.runs).toHaveLength(0);
-    await expect(authContext.getForRun('run_falha_externa')).resolves.toBeNull();
+    await expect(
+      authContext.getForRun('run_falha_externa'),
+    ).resolves.toBeNull();
   });
 
   it('deve propagar falha de persistência após o burst externo', async () => {
@@ -152,7 +162,9 @@ describe('Criar lote', () => {
     });
     const repositorio = new FakeRunRepository();
     const authContext = {
-      saveForRun: vi.fn().mockRejectedValue(new Error('Falha segura ao salvar auth')),
+      saveForRun: vi
+        .fn()
+        .mockRejectedValue(new Error('Falha segura ao salvar auth')),
     };
     const criarLote = new CriarLoteUseCase(
       cliente,
@@ -187,7 +199,11 @@ describe('Criar lote', () => {
       total: 1,
       startedAt,
     });
-    const criarLote = new CriarLoteUseCase(cliente, repositorio);
+    const criarLote = new CriarLoteUseCase(
+      cliente,
+      repositorio,
+      new FakePlatformAuthContextStore(),
+    );
 
     await expect(
       criarLote.execute({ cid: 'cid_teste', token: 'token_teste' }),
