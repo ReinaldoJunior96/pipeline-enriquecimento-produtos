@@ -104,8 +104,12 @@ describe('Retry do worker com respostas HTTP', () => {
     expect(
       servidor.chamadas.filter(({ sku }) => sku === 'sku-http-500'),
     ).toHaveLength(2);
-    await expect((await fila.getJob(`${runId}-0`))?.getState()).resolves.toBe(
-      'completed',
+    const job = await fila.getJob(`${runId}-0`);
+    await vi.waitFor(
+      async () => {
+        await expect(job?.getState()).resolves.toBe('completed');
+      },
+      { timeout: 2_000, interval: 25 },
     );
   });
 

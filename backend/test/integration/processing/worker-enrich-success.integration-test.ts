@@ -84,6 +84,11 @@ describe('Enriquecimento bem-sucedido pelo worker', () => {
     );
 
     const job = await fila.getJob(`${runId}-0`);
-    await expect(job?.getState()).resolves.toBe('completed');
+    await vi.waitFor(
+      async () => {
+        await expect(job?.getState()).resolves.toBe('completed');
+      },
+      { timeout: 2_000, interval: 25 },
+    );
   });
 });
