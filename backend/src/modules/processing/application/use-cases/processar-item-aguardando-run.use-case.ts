@@ -32,6 +32,14 @@ export class ProcessarItemAguardandoRunUseCase {
 
     const { created } = await this.itens.registerIfNew(input);
     if (!created) {
+      const existente = await this.itens.findByRunIdAndSeq(
+        input.runId,
+        input.seq,
+      );
+
+      if (existente?.status === 'PENDING') {
+        await this.fila.enqueue(input);
+      }
       return;
     }
 
