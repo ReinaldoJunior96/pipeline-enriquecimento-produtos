@@ -2,7 +2,7 @@
 
 O Bull Board fica disponível em `http://localhost:3000/admin/queues` quando `BULL_BOARD_ENABLED=true`.
 
-O painel reutiliza a fila BullMQ `processing` já registrada pela aplicação e funciona em modo somente leitura. Ele não cria, consome, remove, promove nem repete jobs.
+O painel mostra as filas BullMQ `processing` e `process-ingress`, já registradas pela aplicação, e funciona em modo somente leitura. Ele não cria, consome, remove, promove nem repete jobs. A fila `process-ingress` contém itens aguardando a persistência da respectiva run.
 
 ## Segurança
 

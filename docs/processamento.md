@@ -31,6 +31,18 @@ O processamento pesado não deve acontecer dentro da requisição HTTP.
 
 A resposta deverá ocorrer dentro do SLA de até `600 ms`.
 
+## Recebimento antes da persistência do lote
+
+A plataforma pode iniciar a entrega dos itens imediatamente após a criação do burst. Como a resposta do `/burst` e a entrega via `/process` são independentes, existe uma janela em que itens podem chegar antes da persistência local da run.
+
+Quando isso acontece, `/process` consulta a existência do lote antes de gravar o item. Se a run ainda não existir, a requisição coloca o payload na fila BullMQ `process-ingress` e responde `202` sem tentar criar `run_items`. O worker `wait-for-run` consulta a run novamente com tentativas curtas. Quando ela aparece, o item é registrado e segue para a fila normal `processing`.
+
+A espera usa até 10 tentativas, com backoff fixo de 500 ms, cobrindo aproximadamente cinco segundos. Se a run não aparecer dentro dessa janela, o job termina como `failed` e gera o evento `process.espera_esgotada` para diagnóstico. Nenhum registro órfão é criado e a chave estrangeira entre `run_items.run_id` e `runs.run_id` continua ativa.
+
+A fila de espera usa o identificador `wait-<run_id>-<seq>` para que entregas repetidas do mesmo item não criem vários jobs enquanto a primeira espera estiver ativa.
+
+Os eventos `process.run_ausente`, `process.aguardando_run`, `process.run_disponivel`, `process.reprocessado` e `process.espera_esgotada` incluem `runId`, `seq`, `sku` e a tentativa quando aplicável. Tokens e headers não são registrados.
+
 Exemplo:
 
 ```http
