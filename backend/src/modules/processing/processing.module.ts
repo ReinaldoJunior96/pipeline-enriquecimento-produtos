@@ -14,6 +14,7 @@ import {
   ProcessingQueue,
 } from './application/queues/processing.queue.js';
 import { ReceberItemProcessamentoUseCase } from './application/use-cases/receber-item-processamento.use-case.js';
+import { ProcessarItemAguardandoRunUseCase } from './application/use-cases/processar-item-aguardando-run.use-case.js';
 import { ProcessarItemUseCase } from './application/use-cases/processar-item.use-case.js';
 import {
   PROCESS_ITEM_REPOSITORY,
@@ -27,6 +28,7 @@ import { PrismaProcessItemRepository } from './infrastructure/repositories/prism
 import { DevelopmentEnrichmentClient } from './infrastructure/clients/development-enrichment.client.js';
 import { criarEnrichmentClient } from './infrastructure/clients/enrichment-client.provider.js';
 import { ProcessingWorker } from './infrastructure/workers/processing.worker.js';
+import { PendingRunWorker } from './infrastructure/workers/pending-run.worker.js';
 import { ProcessingController } from './processing.controller.js';
 import { RunRepository } from '../runs/domain/repositories/run.repository.js';
 import { PrismaRunRepository } from '../runs/infrastructure/repositories/prisma-run.repository.js';
@@ -81,6 +83,15 @@ import { PrismaRunRepository } from '../runs/infrastructure/repositories/prisma-
         ),
     },
     {
+      provide: ProcessarItemAguardandoRunUseCase,
+      inject: [PrismaRunRepository, PROCESS_ITEM_REPOSITORY, PROCESSING_QUEUE],
+      useFactory: (
+        lotes: RunRepository,
+        itens: ProcessItemRepository,
+        fila: ProcessingQueue,
+      ) => new ProcessarItemAguardandoRunUseCase(lotes, itens, fila),
+    },
+    {
       provide: ProcessarItemUseCase,
       inject: [PROCESS_ITEM_REPOSITORY, ENRICHMENT_CLIENT],
       useFactory: (
@@ -88,6 +99,7 @@ import { PrismaRunRepository } from '../runs/infrastructure/repositories/prisma-
         cliente: EnrichmentClient,
       ) => new ProcessarItemUseCase(repositorio, cliente),
     },
+    PendingRunWorker,
     ProcessingWorker,
   ],
 })
