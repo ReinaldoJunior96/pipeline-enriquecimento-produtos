@@ -43,8 +43,8 @@ Segredos permanentes devem ficar em um gerenciador como AWS Secrets Manager, Par
 
 ## Alternativas consideradas
 
-1. Token puro no PostgreSQL — rejeitado por misturar segredo com dados de negócio.
-2. Token criptografado no PostgreSQL — viável se a recuperação após perda do Redis for requisito, mas acrescenta gestão e rotação de chaves.
-3. Secret Manager por run — possível, porém mais complexo e potencialmente custoso para credenciais de alta rotatividade.
-4. Token no payload BullMQ — rejeitado por expor o segredo na fila, em ferramentas de inspeção e em observabilidade.
-5. Redis efêmero — escolhido pelo equilíbrio entre isolamento, ciclo de vida e simplicidade.
+1. Token puro no PostgreSQL: rejeitado por misturar segredo com dados de negócio.
+2. Token criptografado no PostgreSQL:viável se a recuperação após perda do Redis for requisito, mas acrescenta gestão e rotação de chaves.
+3. Secret Manager por run: possível, porém mais complexo e potencialmente custoso para credenciais de alta rotatividade.
+4. Token no payload BullMQ: rejeitado por expor o segredo na fila, em ferramentas de inspeção e em observabilidade.
+5. Redis efêmero: escolhido pelo equilíbrio entre isolamento, ciclo de vida e simplicidade.

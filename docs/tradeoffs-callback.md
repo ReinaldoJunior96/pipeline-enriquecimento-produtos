@@ -87,3 +87,4 @@ Itens `ERROR` contam para o encerramento da run, mas não são enviados porque a
 A escolha prioriza evitar callbacks duplicados.
 
 Em uma falha de comunicação, pode ser necessário verificar manualmente se a plataforma gerou o relatório antes de reenviar o resultado.
+Pode ser adicionado ferramentas de observabilidade como o grafana, loki e prometheus para fazer um tracking do processo para facilitar a analise.

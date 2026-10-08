@@ -1,6 +1,6 @@
 # Teste real manual pelo Swagger
 
-Este fluxo usa o backend como interface para a plataforma externa. Não salve credenciais reais em commits, documentação, testes ou logs.
+Este fluxo usa o backend como interface para testar a aplicação.
 
 ## Pré-requisitos
 
@@ -8,7 +8,7 @@ Configure `backend/.env`:
 
 ```env
 PLATAFORMA_BASE_URL=<url-base-da-plataforma>
-PLATAFORMA_REGISTER_URL=<url-de-register-da-plataforma>
+PLATAFORMA_REGISTER_URL=<url-de-register-da-plataforma>/register
 ENRICHMENT_MODE=http
 ```
 
