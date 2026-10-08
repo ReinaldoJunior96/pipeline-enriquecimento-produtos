@@ -149,6 +149,7 @@ O teste de integração real com a plataforma externa deve ser executado manualm
 - [Trade-offs da autenticação efêmera](docs/tradeoffs-autenticacao-efemera.md)
 - [Trade-offs do callback](docs/tradeoffs-callback.md)
 - [Relatório da melhor execução](docs/melhor-execucao.md)
+- [Link do board no Miro para visualização melhor das imagens da arquitetura](https://miro.com/app/board/uXjVEeC_v5w=/?share_link_id=685971821037)
 
 ## Fluxo resumido
 
