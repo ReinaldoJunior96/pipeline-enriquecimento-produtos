@@ -47,3 +47,21 @@ Foram executadas 100 chamadas locais ao endpoint `/process`, utilizando a aplica
 O maior ACK observado ficou abaixo do limite de 600 ms.
 
 Essa medição é local e não representa latência de produção, pois não inclui PostgreSQL, Redis ou chamadas à plataforma externa.
+
+## E se o lote tivesse 20.000 SKUs?
+
+A arquitetura principal poderia ser mantida, mas alguns pontos precisariam ser reforçados.
+
+O processamento continuaria assíncrono, com ACK rápido no `/process`, persistência no PostgreSQL, idempotência por `(run_id, seq)` e workers consumindo a fila.
+
+As principais mudanças seriam:
+
+- controle de concorrência global entre múltiplos workers, já que o limite da API externa é de três requisições simultâneas;
+- maior atenção a backpressure, tamanho das filas e tempo de espera dos jobs;
+- revisão do TTL da credencial no Redis, porque a execução poderia durar muito mais;
+- otimização da consolidação do resultado para evitar carregar milhares de itens desnecessariamente em memória;
+- maior observabilidade sobre throughput, retries, respostas `429`, duração das runs e tamanho das filas.
+
+Não seria necessário trocar automaticamente BullMQ por Kafka ou RabbitMQ. O principal gargalo continuaria sendo o limite de concorrência da API externa, e adicionar outra infraestrutura de mensageria aumentaria a complexidade sem necessariamente aumentar o throughput.
+
+O trade-off atual foi priorizar simplicidade e previsibilidade para o cenário pedido de 20 SKUs, mantendo uma arquitetura que possa evoluir caso o volume aumente.
